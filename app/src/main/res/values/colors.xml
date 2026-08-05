@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#111827</color>
+    <color name="surface_background">#F4F5F7</color>
+    <color name="surface_primary">#FFFFFF</color>
+    <color name="text_primary">#17191C</color>
+    <color name="text_secondary">#646A73</color>
+    <color name="divider">#E2E5E9</color>
+    <color name="action_primary">#166C54</color>
+    <color name="status_pending">#8A5A12</color>
+</resources>

@@ -1,0 +1,14 @@
+/.gradle/
+/build/
+/app/build/
+/local.properties
+/.idea/
+*.iml
+*.apk
+*.aab
+*.jks
+*.keystore
+/lsposed_live/
+/research/
+/modules_config.db
+/modules_config.db-*

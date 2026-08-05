@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.HyperAICRBypass" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/surface_background</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">@color/action_primary</item>
+        <item name="android:navigationBarColor">@color/surface_background</item>
+        <item name="android:statusBarColor">@color/surface_primary</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

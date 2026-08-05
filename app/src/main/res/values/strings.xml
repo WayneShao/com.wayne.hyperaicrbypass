@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hyper AICR Bypass</string>
+    <string name="xposed_description">Configurable and adaptive policy bypass for Xiaomi Gallery AICR.</string>
+    <string name="master_switch">总开关</string>
+    <string name="master_switch_detail">关闭后保留各项选择，所有 Hook 原样放行</string>
+    <string name="launcher_icon_switch">显示启动器图标</string>
+    <string name="launcher_icon_switch_detail">在桌面应用列表中显示</string>
+    <string name="launcher_icon_write_failed">无法更新启动器图标状态</string>
+    <string name="policy_section">门槛策略</string>
+    <string name="select_all">全选</string>
+    <string name="rescan">重新适配当前 AICR 版本</string>
+    <string name="settings_write_failed">设置写入失败，已保留原状态</string>
+    <string name="settings_read_failed">暂时无法读取模块设置</string>
+    <string name="policy_toggle_description">切换%1$s门槛</string>
+    <string name="policy_temperature">温度门槛</string>
+    <string name="policy_temperature_detail">绕过启动与运行中的超温判断</string>
+    <string name="policy_charging">充电状态</string>
+    <string name="policy_charging_detail">满足必须充电的启动条件</string>
+    <string name="policy_power">电量门槛</string>
+    <string name="policy_power_detail">绕过低电量暂停或拒绝启动</string>
+    <string name="policy_screen_idle">息屏与空闲</string>
+    <string name="policy_screen_idle_detail">绕过交互状态与设备空闲限制</string>
+    <string name="policy_migration">换机迁移</string>
+    <string name="policy_migration_detail">绕过迁移任务占用判断</string>
+    <string name="policy_daily_count">每日运行次数</string>
+    <string name="policy_daily_count_detail">绕过每日分析次数上限</string>
+    <string name="policy_duration">单次运行时长</string>
+    <string name="policy_duration_detail">绕过最长运行时长停止条件</string>
+    <string name="policy_run_gap">运行间隔</string>
+    <string name="policy_run_gap_detail">绕过两次分析之间的等待时间</string>
+    <string name="policy_overload">系统过载</string>
+    <string name="policy_overload_detail">绕过系统繁忙场景暂停判断</string>
+    <string name="policy_task_constraints">后台任务约束</string>
+    <string name="policy_task_constraints_detail">移除 JobScheduler 与 WorkManager 限制</string>
+    <string name="policy_ai_ui_capability">AI 分析界面</string>
+    <string name="policy_ai_ui_capability_detail">始终向相册声明支持 AI 分析进度界面</string>
+</resources>
