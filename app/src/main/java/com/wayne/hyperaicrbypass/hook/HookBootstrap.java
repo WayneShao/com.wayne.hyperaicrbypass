@@ -58,6 +58,8 @@ public final class HookBootstrap {
         }
         if ("com.xiaomi.aicr".equals(packageName)) {
             int preciseProgressCount = new PreciseProgressHooks(context, client).install();
+            int globalPreciseProgressCount =
+                    new GlobalPreciseProgressHooks(context, client).install();
             AicrProviderTraceHooks.InstallResult providerHooks =
                     new AicrProviderTraceHooks(context.getClassLoader(), client).install();
             int compatibilityCount = new RunningStatusCompatibilityHooks(
@@ -101,7 +103,8 @@ public final class HookBootstrap {
                 }
             });
             if (exact.aicrHookCount() + semanticCount + compatibilityCount
-                    + providerHooks.installedCount() + preciseProgressCount == 0) {
+                    + providerHooks.installedCount() + preciseProgressCount
+                    + globalPreciseProgressCount == 0) {
                 showTotalFailureOnce(context);
             }
         }
