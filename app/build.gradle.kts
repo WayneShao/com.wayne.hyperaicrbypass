@@ -2,6 +2,11 @@ plugins {
     id("com.android.application")
 }
 
+val splitAbi = providers.gradleProperty("splitAbi")
+    .orNull
+    ?.toBooleanStrictOrNull()
+    ?: false
+
 android {
     namespace = "com.wayne.hyperaicrbypass"
     compileSdk = 36
@@ -46,6 +51,15 @@ android {
                 "META-INF/**",
                 "kotlin/**"
             )
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = splitAbi
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            isUniversalApk = splitAbi
         }
     }
 
