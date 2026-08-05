@@ -36,6 +36,7 @@ public final class PreciseProgressHooks {
     private final ClassLoader classLoader;
     private final ConfigClient configClient;
     private final AtomicReference<PreciseProgressSnapshot> latest = new AtomicReference<>();
+    private volatile boolean notificationChainReady;
 
     public PreciseProgressHooks(Context context, ConfigClient configClient) {
         this.context = context;
@@ -44,6 +45,7 @@ public final class PreciseProgressHooks {
     }
 
     public int install() {
+        notificationChainReady = false;
         int installed = 0;
         List<PreciseProgressHookCatalog.Point> missing = new ArrayList<>();
         for (PreciseProgressHookCatalog.Point point : PreciseProgressHookCatalog.points()) {
@@ -56,6 +58,7 @@ public final class PreciseProgressHooks {
         if (!missing.isEmpty()) {
             installed += installSemanticFallbacks(missing);
         }
+        notificationChainReady = installed == PreciseProgressHookCatalog.points().size();
         XposedBridge.log(TAG + ": precise progress hooks=" + installed + "/"
                 + PreciseProgressHookCatalog.points().size());
         return installed;
@@ -182,7 +185,10 @@ public final class PreciseProgressHooks {
                 || !(param.args[0] instanceof Integer scope)
                 || !(param.args[1] instanceof Boolean forceUpdate)
                 || !PreciseProgressHookLogic.shouldForceUiNotification(
-                        scope, latest.get())) {
+                        notificationChainReady,
+                        scope,
+                        latest.get(),
+                        SystemClock.elapsedRealtime())) {
             return;
         }
         param.args[1] = true;

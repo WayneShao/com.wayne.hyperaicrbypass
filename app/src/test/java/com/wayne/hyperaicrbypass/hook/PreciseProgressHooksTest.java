@@ -90,8 +90,23 @@ public final class PreciseProgressHooksTest {
                 418_714L, 595_999L, 70, 2_000L
         ).orElseThrow();
 
-        assertTrue(PreciseProgressHookLogic.shouldForceUiNotification(1, payload));
-        assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(2, payload));
-        assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(1, null));
+        assertTrue(PreciseProgressHookLogic.shouldForceUiNotification(
+                true, 1, payload, 362_000L
+        ));
+        assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(
+                false, 1, payload, 2_001L
+        ));
+        assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(
+                true, 2, payload, 2_001L
+        ));
+        assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(
+                true, 1, null, 2_001L
+        ));
+        assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(
+                true, 1, payload, 362_001L
+        ));
+        assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(
+                true, 1, payload, 1_999L
+        ));
     }
 }

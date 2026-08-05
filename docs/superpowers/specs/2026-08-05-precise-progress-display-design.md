@@ -89,7 +89,9 @@ as a second transport channel.
 Install a before-hook on
 `com.xiaomi.aicr.searchpro.monitor.RunningStatus.sendProgressToActivity(int,
 boolean)`. For gallery scope `1`, once a precise snapshot has been captured in
-that process, change only the existing `forceUpdate` argument to `true`.
+that process, change only the existing `forceUpdate` argument to `true`. This
+bridge is enabled only when all four precise hook points installed successfully
+and the snapshot is no more than six minutes old.
 AICR still performs its original registered-UI-scope check, obtains the current
 progress Bundle, calls its own `refresh_ui_progress` Provider method, and emits
 through its own `StateFlow`. This closes the notification gap without polling,

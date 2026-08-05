@@ -197,7 +197,7 @@ PreciseProgressPayload.writeToBundle(result, snapshot);
 }
 
 // Before AICR decides whether to notify its registered UI scope
-if (scope == 1 && latest.get() != null) {
+if (allFourHooksInstalled && scope == 1 && latestSnapshotIsFresh) {
     param.args[1] = true;
 }
 
@@ -211,7 +211,7 @@ CharSequence rendered = PreciseProgressDisplay.render(
 statusView.setText(rendered);
 ```
 
-Every callback first checks `configClient.snapshot().shouldBypass(Policy.AI_UI_CAPABILITY)`, validates all runtime types, and requires `Bundle.containsKey("analyse_progress")` plus an actual `Integer` value before transport or rendering. It catches its own failures and logs a concise message without throwing into AICR. The notification hook changes only the `forceUpdate` argument and leaves AICR's registered-scope and Provider logic intact. Resolve `mBinding` and `tvBusinessStatus` reflectively after AICR's original method has completed; do not touch the progress bar.
+Every callback first checks `configClient.snapshot().shouldBypass(Policy.AI_UI_CAPABILITY)`, validates all runtime types, and requires `Bundle.containsKey("analyse_progress")` plus an actual `Integer` value before transport or rendering. It catches its own failures and logs a concise message without throwing into AICR. The notification hook activates only when all four precise hooks installed and its snapshot is no more than six minutes old; it changes only the `forceUpdate` argument and leaves AICR's registered-scope and Provider logic intact. Resolve `mBinding` and `tvBusinessStatus` reflectively after AICR's original method has completed; do not touch the progress bar.
 
 - [ ] **Step 5: Implement strict DexKit fallback registration**
 
