@@ -59,7 +59,11 @@ jobs:
 
       - name: Install Android SDK 37
         shell: bash
-        run: sdkmanager --channel=3 "platforms;android-37.0" "build-tools;37.0.0"
+        run: >-
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          --channel=3
+          "platforms;android-37.0"
+          "build-tools;37.0.0"
 
       - name: Test and build ABI variants
         shell: bash
