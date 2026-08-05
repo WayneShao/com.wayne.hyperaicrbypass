@@ -50,6 +50,12 @@ result Bundle is sent through the existing `SearchDataBaseProvider` and
 `AISearchUIProvider` Binder path to the Activity process. Consequently,
 ordinary process-local memory cannot carry precision all the way to the UI.
 
+`RunningStatus.sendProgressToActivity(...)` computes that Bundle while the
+screen is open, but its original code calls `refresh_ui_progress` only for
+selected integer or status changes. Fractional changes within the same integer
+percentage therefore remain invisible until a later qualifying update or the
+Activity is recreated.
+
 ## Design
 
 ### Capture
@@ -77,6 +83,18 @@ progress updates. Android Binder copies the namespaced fields with the existing
 Bundle into the UI process, and `AISearchUIProvider` preserves unknown Bundle
 fields in its cache. No module provider, file, preference, or database is used
 as a second transport channel.
+
+### UI notification
+
+Install a before-hook on
+`com.xiaomi.aicr.searchpro.monitor.RunningStatus.sendProgressToActivity(int,
+boolean)`. For gallery scope `1`, once a precise snapshot has been captured in
+that process, change only the existing `forceUpdate` argument to `true`.
+AICR still performs its original registered-UI-scope check, obtains the current
+progress Bundle, calls its own `refresh_ui_progress` Provider method, and emits
+through its own `StateFlow`. This closes the notification gap without polling,
+a timer, reflection into the flow, or a second data source. The original
+integer and status fields remain unchanged.
 
 ### Format
 
@@ -130,6 +148,10 @@ layer:
   anchors.
 - The UI fallback requires a void-returning method with one `Bundle` parameter
   and the `analyse_progress` and `refreshUIStatus scope:` string anchors.
+- The UI-notification fallback requires a void-returning method with `int` and
+  `boolean` parameters plus the `enter sendProgressToActivity scopes：`,
+  `refresh_ui_progress`, and `no ui scope Or no current scopes,no refresh`
+  anchors.
 
 Discovery is accepted only when validation resolves a single candidate. If an
 exact hook and its semantic fallback are both unavailable, retain the original
@@ -168,10 +190,13 @@ Unit tests cover:
 - ASCII percentage-token matching and first-token-only replacement;
 - denominator-less AICR completion formatting as `100.000%`;
 - fail-open behavior when no valid snapshot is available.
+- forced existing UI notification only for gallery scope after a precise
+  snapshot exists.
 
 The Android build and complete JVM unit-test suite must pass before deployment.
 Live verification checks that the gallery progress label shows three decimals
-while the scan remains active and its underlying integer progress is unchanged.
+while the scan remains active, continues updating within one integer percentage,
+and leaves its underlying integer progress unchanged.
 
 ## Out Of Scope
 

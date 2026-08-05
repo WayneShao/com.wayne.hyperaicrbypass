@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 import java.util.Map;
+import java.util.Optional;
 
 public final class PreciseProgressHooksTest {
     @Test
@@ -61,5 +62,36 @@ public final class PreciseProgressHooksTest {
                 true, 1, 69, snapshot, 2_000L));
         assertFalse(PreciseProgressHookLogic.shouldAttach(
                 true, 1, 70, snapshot, 361_001L));
+    }
+
+    @Test
+    public void displayPrefersNewPayloadAndFallsBackToUiProcessCache() {
+        PreciseProgressSnapshot cached = PreciseProgressSnapshot.restore(
+                418_000L, 595_999L, 70, 1_000L
+        ).orElseThrow();
+        PreciseProgressSnapshot payload = PreciseProgressSnapshot.restore(
+                418_714L, 595_999L, 70, 2_000L
+        ).orElseThrow();
+
+        assertEquals(payload, PreciseProgressHookLogic.displaySnapshot(
+                Optional.of(payload), cached
+        ).orElseThrow());
+        assertEquals(cached, PreciseProgressHookLogic.displaySnapshot(
+                Optional.empty(), cached
+        ).orElseThrow());
+        assertFalse(PreciseProgressHookLogic.displaySnapshot(
+                Optional.empty(), null
+        ).isPresent());
+    }
+
+    @Test
+    public void forcesExistingNotificationOnlyForGalleryWithAPreciseSnapshot() {
+        PreciseProgressSnapshot payload = PreciseProgressSnapshot.restore(
+                418_714L, 595_999L, 70, 2_000L
+        ).orElseThrow();
+
+        assertTrue(PreciseProgressHookLogic.shouldForceUiNotification(1, payload));
+        assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(2, payload));
+        assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(1, null));
     }
 }

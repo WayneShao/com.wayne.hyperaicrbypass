@@ -25,6 +25,15 @@ public final class PreciseProgressHookCatalog {
                     Set.of("getIndexProgress scope:", "analyse_progress", "analyse_status")
             ),
             point(
+                    Kind.NOTIFY,
+                    "com.xiaomi.aicr.searchpro.monitor.RunningStatus",
+                    "sendProgressToActivity",
+                    "void",
+                    List.of("int", "boolean"),
+                    Set.of("enter sendProgressToActivity scopes：", "refresh_ui_progress",
+                            "no ui scope Or no current scopes,no refresh")
+            ),
+            point(
                     Kind.DISPLAY,
                     "com.xiaomi.aicr.aisearch.progress.AISearchProgressActivity",
                     "refreshUI",
@@ -69,6 +78,7 @@ public final class PreciseProgressHookCatalog {
     public enum Kind {
         CAPTURE,
         TRANSPORT,
+        NOTIFY,
         DISPLAY
     }
 

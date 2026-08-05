@@ -138,7 +138,26 @@ public final class PreciseProgressHooks {
     private XC_MethodHook callback(PreciseProgressHookCatalog.Kind kind) {
         return new XC_MethodHook() {
             @Override
+            protected void beforeHookedMethod(MethodHookParam param) {
+                if (kind != PreciseProgressHookCatalog.Kind.NOTIFY) {
+                    return;
+                }
+                try {
+                    if (!configClient.snapshot().shouldBypass(Policy.AI_UI_CAPABILITY)) {
+                        return;
+                    }
+                    forceUiNotification(param);
+                } catch (Throwable error) {
+                    XposedBridge.log(TAG + ": precise " + kind + " callback failed -> "
+                            + error);
+                }
+            }
+
+            @Override
             protected void afterHookedMethod(MethodHookParam param) {
+                if (kind == PreciseProgressHookCatalog.Kind.NOTIFY) {
+                    return;
+                }
                 try {
                     if (!configClient.snapshot().shouldBypass(Policy.AI_UI_CAPABILITY)) {
                         return;
@@ -147,6 +166,8 @@ public final class PreciseProgressHooks {
                         case CAPTURE -> capture(param);
                         case TRANSPORT -> transport(param);
                         case DISPLAY -> display(param);
+                        case NOTIFY -> {
+                        }
                     }
                 } catch (Throwable error) {
                     XposedBridge.log(TAG + ": precise " + kind + " callback failed -> "
@@ -154,6 +175,20 @@ public final class PreciseProgressHooks {
                 }
             }
         };
+    }
+
+    private void forceUiNotification(XC_MethodHook.MethodHookParam param) {
+        if (param.args.length < 2
+                || !(param.args[0] instanceof Integer scope)
+                || !(param.args[1] instanceof Boolean forceUpdate)
+                || !PreciseProgressHookLogic.shouldForceUiNotification(
+                        scope, latest.get())) {
+            return;
+        }
+        param.args[1] = true;
+        if (!forceUpdate) {
+            XposedBridge.log(TAG + ": precise notify forced scope=" + scope);
+        }
     }
 
     private void capture(XC_MethodHook.MethodHookParam param) {
@@ -188,8 +223,11 @@ public final class PreciseProgressHooks {
             return;
         }
         OptionalInt progress = requiredBundleInteger(input, PROGRESS_KEY);
-        Optional<PreciseProgressSnapshot> snapshot =
+        Optional<PreciseProgressSnapshot> payload =
                 PreciseProgressPayload.readFromBundle(input);
+        payload.ifPresent(latest::set);
+        Optional<PreciseProgressSnapshot> snapshot =
+                PreciseProgressHookLogic.displaySnapshot(payload, latest.get());
         if (progress.isEmpty() || snapshot.isEmpty()) {
             return;
         }

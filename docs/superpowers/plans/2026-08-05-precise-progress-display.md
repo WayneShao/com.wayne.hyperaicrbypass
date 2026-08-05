@@ -4,7 +4,7 @@
 
 **Goal:** Display Xiaomi AICR gallery analysis progress as a half-up rounded percentage with exactly three fractional digits while leaving AICR's scan, integer progress, and progress bar unchanged.
 
-**Architecture:** Capture AICR's eight calculator arguments in the calculation process, attach a versioned module-namespaced payload to AICR's existing `ProgressMonitor.getIndexProgress` Bundle, and decode that payload in the progress Activity process. Exact current signatures are attempted first; each missing point gets a strict, unique-candidate DexKit fallback, and every failure leaves AICR's original integer label untouched.
+**Architecture:** Capture AICR's eight calculator arguments in the calculation process, attach a versioned module-namespaced payload to AICR's existing `ProgressMonitor.getIndexProgress` Bundle, make AICR's existing `sendProgressToActivity` path notify the registered gallery UI for each precise update, and decode that payload in the progress Activity process. Exact current signatures are attempted first; each missing point gets a strict, unique-candidate DexKit fallback, and every failure leaves AICR's original integer label untouched.
 
 **Tech Stack:** Java 17, Android `Bundle`/Binder, LSPosed Xposed API 82, DexKit 2.2.0, JUnit 4, Gradle Android plugin 8.7.3
 
@@ -153,11 +153,12 @@ Expected: payload tests PASS and the commit succeeds.
 
 - [ ] **Step 1: Write failing catalog and callback-decision tests**
 
-Assert all three hook shapes and anchors exactly:
+Assert all four hook shapes and anchors exactly:
 
 ```text
 calculateProgress: int <- eight int, anchors progress = / base / numerator
 com.xiaomi.aicr.searchpro.monitor.ProgressMonitor.getIndexProgress: Bundle <- int, boolean, Function3, anchors getIndexProgress scope: / analyse_progress / analyse_status
+com.xiaomi.aicr.searchpro.monitor.RunningStatus.sendProgressToActivity: void <- int, boolean, anchors enter sendProgressToActivity scopes： / refresh_ui_progress / no ui scope Or no current scopes,no refresh
 refreshUI: void <- Bundle, anchors analyse_progress / refreshUIStatus scope:
 ```
 
@@ -179,7 +180,7 @@ Define exact current owners/methods plus a `SemanticQuerySpec` for each point. A
 
 - [ ] **Step 4: Implement exact hook registration and callbacks**
 
-`PreciseProgressHooks` owns a process-local `AtomicReference<PreciseProgressSnapshot>` and three after-callbacks:
+`PreciseProgressHooks` owns a process-local `AtomicReference<PreciseProgressSnapshot>` and four after-callbacks:
 
 ```java
 // calculator process
@@ -192,7 +193,12 @@ PreciseProgressSnapshot snapshot = latest.get();
 OptionalInt progress = readRequiredAicrProgress(result);
 if (snapshot != null && progress.isPresent() && snapshot.isCompatible(
         progress.getAsInt(), SystemClock.elapsedRealtime())) {
-    PreciseProgressPayload.writeToBundle(result, snapshot);
+PreciseProgressPayload.writeToBundle(result, snapshot);
+}
+
+// Before AICR decides whether to notify its registered UI scope
+if (scope == 1 && latest.get() != null) {
+    param.args[1] = true;
 }
 
 // Activity process, after original refreshUI
@@ -205,7 +211,7 @@ CharSequence rendered = PreciseProgressDisplay.render(
 statusView.setText(rendered);
 ```
 
-Every callback first checks `configClient.snapshot().shouldBypass(Policy.AI_UI_CAPABILITY)`, validates all runtime types, and requires `Bundle.containsKey("analyse_progress")` plus an actual `Integer` value before transport or rendering. It catches its own failures and logs a concise message without throwing into AICR. Resolve `mBinding` and `tvBusinessStatus` reflectively after AICR's original method has completed; do not touch the progress bar.
+Every callback first checks `configClient.snapshot().shouldBypass(Policy.AI_UI_CAPABILITY)`, validates all runtime types, and requires `Bundle.containsKey("analyse_progress")` plus an actual `Integer` value before transport or rendering. It catches its own failures and logs a concise message without throwing into AICR. The notification hook changes only the `forceUpdate` argument and leaves AICR's registered-scope and Provider logic intact. Resolve `mBinding` and `tvBusinessStatus` reflectively after AICR's original method has completed; do not touch the progress bar.
 
 - [ ] **Step 5: Implement strict DexKit fallback registration**
 
@@ -287,7 +293,7 @@ Do not reboot, restart `system_server`/`lspd`, clear data/cache, or delete any a
 
 - [ ] **Step 5: Verify hook registration and live rendering**
 
-Clear only logcat's volatile buffer if needed, open Gallery's AI analysis progress UI, and inspect filtered logs for all three hook points plus payload transport/render messages. Verify on screen that the localized label contains exactly three decimals and the integer progress bar remains unchanged. Compare the displayed value with the calculator hook's logged numerator/denominator using the same half-up formula.
+Clear only logcat's volatile buffer if needed, open Gallery's AI analysis progress UI, and inspect filtered logs for all four hook points plus forced-notification, payload, Provider, and render messages. Verify on screen that the localized label contains exactly three decimals, updates while the integer percentage is unchanged, and leaves the integer progress bar unchanged. Compare the displayed value with the calculator hook's logged numerator/denominator using the same half-up formula.
 
 - [ ] **Step 6: Run a final repository audit and commit any verification-only fixes**
 

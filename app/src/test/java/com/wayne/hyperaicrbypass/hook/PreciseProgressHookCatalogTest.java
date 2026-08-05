@@ -11,11 +11,11 @@ import java.util.Set;
 
 public final class PreciseProgressHookCatalogTest {
     @Test
-    public void definesExactCalculatorTransportAndDisplayShapes() {
+    public void definesExactCalculatorTransportNotificationAndDisplayShapes() {
         List<PreciseProgressHookCatalog.Point> points =
                 PreciseProgressHookCatalog.points();
 
-        assertEquals(3, points.size());
+        assertEquals(4, points.size());
         assertPoint(points.get(0),
                 PreciseProgressHookCatalog.Kind.CAPTURE,
                 "com.xiaomi.aicr.searchpro.monitor.GalleryProgressMonitor",
@@ -31,6 +31,14 @@ public final class PreciseProgressHookCatalogTest {
                 List.of("int", "boolean", "kotlin.jvm.functions.Function3"),
                 Set.of("getIndexProgress scope:", "analyse_progress", "analyse_status"));
         assertPoint(points.get(2),
+                PreciseProgressHookCatalog.Kind.NOTIFY,
+                "com.xiaomi.aicr.searchpro.monitor.RunningStatus",
+                "sendProgressToActivity",
+                "void",
+                List.of("int", "boolean"),
+                Set.of("enter sendProgressToActivity scopes：", "refresh_ui_progress",
+                        "no ui scope Or no current scopes,no refresh"));
+        assertPoint(points.get(3),
                 PreciseProgressHookCatalog.Kind.DISPLAY,
                 "com.xiaomi.aicr.aisearch.progress.AISearchProgressActivity",
                 "refreshUI",

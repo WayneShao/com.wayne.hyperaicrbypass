@@ -53,4 +53,18 @@ public final class PreciseProgressHookLogic {
                 && snapshot != null
                 && snapshot.isCompatible(progress, nowElapsedRealtime);
     }
+
+    public static Optional<PreciseProgressSnapshot> displaySnapshot(
+            Optional<PreciseProgressSnapshot> payload,
+            PreciseProgressSnapshot cached
+    ) {
+        return payload.isPresent() ? payload : Optional.ofNullable(cached);
+    }
+
+    public static boolean shouldForceUiNotification(
+            int scope,
+            PreciseProgressSnapshot snapshot
+    ) {
+        return scope == 1 && snapshot != null;
+    }
 }
