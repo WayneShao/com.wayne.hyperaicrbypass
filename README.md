@@ -19,6 +19,7 @@
 - 某项 Hook 在当前 AICR 版本中无法安全定位时，该项会显示 `Unavailable` 并置灰，不影响其他已经成功安装的 Hook。
 - 可主动要求重新适配当前 AICR 版本。
 - 可隐藏启动器图标；隐藏后仍可从 LSPosed 的模块设置入口打开界面。
+- 打开设置时检测 modern Xposed 服务；模块未启用时提示用户并立即退出。
 - 相册分析页面和全局 AI 搜索设置页面显示三位小数进度，例如 `69.864%`，使用四舍五入。
 
 可独立控制的 11 类策略：
@@ -58,16 +59,17 @@
 | AICR | `4.0.6`（versionCode `2030040006`） |
 | 小米相册 | `5.0.7.7-0720-R`（versionCode `5000707`） |
 | AI Service | `3.12.2_dd2be79_260427_cn`（versionCode `312002`） |
+| LSPosed / Vector | `2.1.1`，libxposed API `102` |
 
-模块应用最低支持 Android 9（API 28），Xposed API 最低版本为 93。实际 Hook 兼容性仍取决于设备 ROM、相册、AICR 和 AI Service 的具体实现。
+模块应用最低支持 Android 9（API 28），框架必须支持 modern libxposed API 102。实际 Hook 兼容性仍取决于设备 ROM、相册、AICR 和 AI Service 的具体实现。
 
 ## 安装与作用域
 
 旧的本地调试模块使用包名 `com.example.hyperaicrbypass`，与正式版是两个不同应用，不能覆盖迁移。安装正式版前应卸载旧模块，再安装 `com.wayne.hyperaicrbypass` 并在 LSPosed 中重新启用模块和作用域。从正式版 1.0.0 开始，公开版本会持续使用同一把永久 Release 密钥，可以正常覆盖升级。
 
 1. 安装 Release 中的 `universal` APK。除非明确知道被 Hook 目标进程的 ABI，否则不要选择分架构 APK。
-2. 在 LSPosed 中启用模块。
-3. 勾选以下三个作用域：
+2. 在支持 libxposed API 102 的 LSPosed / Vector 中启用模块。
+3. 模块使用静态作用域模式，管理器只会显示以下三个固定作用域，无需由模块动态申请：
 
 ```text
 com.miui.gallery
@@ -105,7 +107,7 @@ com.xiaomi.aiservice
 
 ## 从源码构建
 
-环境要求：JDK 17、Android SDK 36。
+环境要求：JDK 21、Android SDK 37.0、支持 SDK 37 的 Android Gradle Plugin。
 
 ```bash
 ./gradlew testDebugUnitTest assembleDebug
@@ -131,6 +133,12 @@ tag 必须与 APK 内版本严格对应，格式为：
 
 ```text
 1-1.0.0
+```
+
+modern libxposed API 102 版本为 `versionCode=2`、`versionName=1.1.0`，对应 tag：
+
+```text
+2-1.1.0
 ```
 
 tag 推送后，Release 工作流会运行单元测试，构建 universal、`arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64` 五个 APK，使用同一正式证书签名并逐个验签。所有检查完成前 Release 保持为 draft；已经公开的同版本 Release 不会被覆盖。

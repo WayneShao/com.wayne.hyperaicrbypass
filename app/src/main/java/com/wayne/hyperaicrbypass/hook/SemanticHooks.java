@@ -22,8 +22,8 @@ import java.util.Set;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
+import com.wayne.hyperaicrbypass.xposed.ModernHook;
+import com.wayne.hyperaicrbypass.xposed.ModernXposed;
 
 public final class SemanticHooks {
     private static final String TAG = "HyperAICRBypass";
@@ -66,20 +66,20 @@ public final class SemanticHooks {
                         continue;
                     }
                     try {
-                        XposedBridge.hookMethod(method, callback(semantic));
+                        ModernXposed.hookMethod(method, callback(semantic));
                         successes++;
                         policyCounts.merge(semantic.policy(), 1, Integer::sum);
-                        XposedBridge.log(TAG + ": semantic " + semantic.policy().getKey()
+                        ModernXposed.log(TAG + ": semantic " + semantic.policy().getKey()
                                 + " -> " + id);
                     } catch (Throwable error) {
                         installedIds.remove(id);
-                        XposedBridge.log(TAG + ": semantic registration failed " + id
+                        ModernXposed.log(TAG + ": semantic registration failed " + id
                                 + " -> " + error);
                     }
                 }
             }
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": semantic discovery unavailable -> " + error);
+            ModernXposed.log(TAG + ": semantic discovery unavailable -> " + error);
         }
         return successes;
     }
@@ -113,7 +113,7 @@ public final class SemanticHooks {
             }
             return List.copyOf(methods);
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": semantic query failed " + spec.policy().getKey()
+            ModernXposed.log(TAG + ": semantic query failed " + spec.policy().getKey()
                     + "/" + spec.preferredMethodName() + " -> " + error);
             return List.of();
         }
@@ -139,8 +139,8 @@ public final class SemanticHooks {
         return List.of();
     }
 
-    private XC_MethodHook callback(SemanticHookSpec spec) {
-        return new XC_MethodHook() {
+    private ModernHook callback(SemanticHookSpec spec) {
+        return new ModernHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 if (!configClient.snapshot().shouldBypass(spec.policy())) {

@@ -7,9 +7,9 @@ import android.os.Bundle;
 
 import java.util.List;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
+import com.wayne.hyperaicrbypass.xposed.ModernHook;
+import com.wayne.hyperaicrbypass.xposed.ModernXposed;
+import com.wayne.hyperaicrbypass.xposed.ReflectionHelpers;
 
 public final class GalleryAicrTraceHooks {
     private static final String TAG = "HyperAICRBypass";
@@ -38,12 +38,12 @@ public final class GalleryAicrTraceHooks {
         installed += installResolverUriCall() ? 1 : 0;
         installed += installResolverAuthorityCall() ? 1 : 0;
         installed += installProviderClientCall() ? 1 : 0;
-        XposedBridge.log(TAG + ": gallery AICR trace hooks=" + installed + "/3");
+        ModernXposed.log(TAG + ": gallery AICR trace hooks=" + installed + "/3");
     }
 
     private static boolean installResolverUriCall() {
         try {
-            XposedHelpers.findAndHookMethod(
+            ReflectionHelpers.findAndHookMethod(
                     ContentResolver.class,
                     "call",
                     Uri.class,
@@ -54,14 +54,14 @@ public final class GalleryAicrTraceHooks {
             );
             return true;
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": gallery resolver Uri trace unavailable -> " + error);
+            ModernXposed.log(TAG + ": gallery resolver Uri trace unavailable -> " + error);
             return false;
         }
     }
 
     private static boolean installResolverAuthorityCall() {
         try {
-            XposedHelpers.findAndHookMethod(
+            ReflectionHelpers.findAndHookMethod(
                     ContentResolver.class,
                     "call",
                     String.class,
@@ -72,14 +72,14 @@ public final class GalleryAicrTraceHooks {
             );
             return true;
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": gallery resolver authority trace unavailable -> " + error);
+            ModernXposed.log(TAG + ": gallery resolver authority trace unavailable -> " + error);
             return false;
         }
     }
 
     private static boolean installProviderClientCall() {
         try {
-            XposedHelpers.findAndHookMethod(
+            ReflectionHelpers.findAndHookMethod(
                     ContentProviderClient.class,
                     "call",
                     String.class,
@@ -89,12 +89,12 @@ public final class GalleryAicrTraceHooks {
             );
             return true;
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": gallery provider-client trace unavailable -> " + error);
+            ModernXposed.log(TAG + ": gallery provider-client trace unavailable -> " + error);
             return false;
         }
     }
 
-    private static XC_MethodHook resolverUriCallback() {
+    private static ModernHook resolverUriCallback() {
         return callback(param -> {
             Uri uri = param.args[0] instanceof Uri value ? value : null;
             String authority = uri == null ? null : uri.getAuthority();
@@ -104,7 +104,7 @@ public final class GalleryAicrTraceHooks {
         });
     }
 
-    private static XC_MethodHook resolverAuthorityCallback() {
+    private static ModernHook resolverAuthorityCallback() {
         return callback(param -> {
             String authority = param.args[0] instanceof String value ? value : null;
             String method = param.args[1] instanceof String value ? value : null;
@@ -113,7 +113,7 @@ public final class GalleryAicrTraceHooks {
         });
     }
 
-    private static XC_MethodHook providerClientCallback() {
+    private static ModernHook providerClientCallback() {
         return callback(param -> {
             String method = param.args[0] instanceof String value ? value : null;
             return GalleryAicrTraceFilter.shouldTraceMethod(method)
@@ -121,8 +121,8 @@ public final class GalleryAicrTraceHooks {
         });
     }
 
-    private static XC_MethodHook callback(TargetResolver resolver) {
-        return new XC_MethodHook() {
+    private static ModernHook callback(TargetResolver resolver) {
+        return new ModernHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 TraceTarget target = resolver.resolve(param);
@@ -131,7 +131,7 @@ public final class GalleryAicrTraceHooks {
                 }
                 Bundle extras = param.args[target.extrasIndex] instanceof Bundle bundle
                         ? bundle : null;
-                XposedBridge.log(TAG + ": gallery AICR request "
+                ModernXposed.log(TAG + ": gallery AICR request "
                         + target.authority + " " + target.method + " " + summarize(extras));
             }
 
@@ -142,7 +142,7 @@ public final class GalleryAicrTraceHooks {
                     return;
                 }
                 Bundle result = param.getResult() instanceof Bundle bundle ? bundle : null;
-                XposedBridge.log(TAG + ": gallery AICR response "
+                ModernXposed.log(TAG + ": gallery AICR response "
                         + target.authority + " " + target.method + " " + summarize(result));
             }
         };
@@ -168,7 +168,7 @@ public final class GalleryAicrTraceHooks {
     }
 
     private interface TargetResolver {
-        TraceTarget resolve(XC_MethodHook.MethodHookParam param);
+        TraceTarget resolve(ModernHook.MethodHookParam param);
     }
 
     private record TraceTarget(String authority, String method, int extrasIndex) {

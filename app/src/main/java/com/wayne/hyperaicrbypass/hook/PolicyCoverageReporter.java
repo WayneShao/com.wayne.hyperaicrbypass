@@ -11,7 +11,7 @@ import com.wayne.hyperaicrbypass.config.Policy;
 import java.util.EnumMap;
 import java.util.Map;
 
-import de.robv.android.xposed.XposedBridge;
+import com.wayne.hyperaicrbypass.xposed.ModernXposed;
 
 public final class PolicyCoverageReporter {
     private static final String TAG = "HyperAICRBypass";
@@ -60,7 +60,7 @@ public final class PolicyCoverageReporter {
                         extras
                 );
             } catch (RuntimeException error) {
-                XposedBridge.log(TAG + ": coverage report failed " + policy.getKey()
+                ModernXposed.log(TAG + ": coverage report failed " + policy.getKey()
                         + " -> " + error);
             }
         }

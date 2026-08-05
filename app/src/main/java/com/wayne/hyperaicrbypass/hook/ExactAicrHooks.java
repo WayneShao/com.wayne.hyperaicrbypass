@@ -10,9 +10,9 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
+import com.wayne.hyperaicrbypass.xposed.ModernHook;
+import com.wayne.hyperaicrbypass.xposed.ModernXposed;
+import com.wayne.hyperaicrbypass.xposed.ReflectionHelpers;
 
 public final class ExactAicrHooks {
     private static final String TAG = "HyperAICRBypass";
@@ -34,7 +34,7 @@ public final class ExactAicrHooks {
                 missing.add(spec);
             }
         }
-        XposedBridge.log(TAG + ": exact hooks=" + planner.registeredCount()
+        ModernXposed.log(TAG + ": exact hooks=" + planner.registeredCount()
                 + ", covered policies=" + successfulPolicies.size());
         long aicrHookCount = ExactHookCatalog.aicrSpecs().stream()
                 .filter(spec -> spec.className().startsWith("com.xiaomi.aicr."))
@@ -57,7 +57,7 @@ public final class ExactAicrHooks {
             return planner.isRegistered(spec);
         }
         try {
-            Class<?> owner = XposedHelpers.findClass(spec.className(), classLoader);
+            Class<?> owner = ReflectionHelpers.findClass(spec.className(), classLoader);
             Class<?>[] parameters = new Class<?>[spec.parameterTypes().size()];
             for (int i = 0; i < parameters.length; i++) {
                 parameters[i] = resolveType(spec.parameterTypes().get(i));
@@ -66,20 +66,20 @@ public final class ExactAicrHooks {
             if (!method.getReturnType().equals(resolveType(spec.returnType()))) {
                 throw new NoSuchMethodException("Return type mismatch for " + spec.id());
             }
-            XposedBridge.hookMethod(method, callback(spec));
+            ModernXposed.hookMethod(method, callback(spec));
             planner.recordSuccess(spec);
             successfulPolicies.add(spec.policy().getKey());
-            XposedBridge.log(TAG + ": exact " + spec.policy().getKey() + " -> " + spec.id());
+            ModernXposed.log(TAG + ": exact " + spec.policy().getKey() + " -> " + spec.id());
             return true;
         } catch (Throwable error) {
             planner.recordFailure(spec, error.toString());
-            XposedBridge.log(TAG + ": exact unavailable " + spec.id() + " -> " + error);
+            ModernXposed.log(TAG + ": exact unavailable " + spec.id() + " -> " + error);
             return false;
         }
     }
 
-    private XC_MethodHook callback(HookSpec spec) {
-        return new XC_MethodHook() {
+    private ModernHook callback(HookSpec spec) {
+        return new ModernHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 if (!configClient.snapshot().shouldBypass(spec.policy())) {

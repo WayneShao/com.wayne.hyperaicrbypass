@@ -48,14 +48,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+
+      - name: Install Android SDK 37
+        shell: bash
+        run: sdkmanager --channel=3 "platforms;android-37.0" "build-tools;37.0.0"
 
       - name: Test and build ABI variants
         shell: bash
@@ -170,6 +174,29 @@ jobs:
               echo "::error::$classifier contains DexKit ABIs '$actual_abis', expected '$expected_abis'"
               exit 1
             }
+
+            expected_module_prop=$'minApiVersion=102\ntargetApiVersion=102\nstaticScope=true'
+            expected_scope=$'com.miui.gallery\ncom.xiaomi.aicr\ncom.xiaomi.aiservice'
+            expected_entry='com.wayne.hyperaicrbypass.MainHook'
+            actual_module_prop="$(unzip -p "$output" META-INF/xposed/module.prop | tr -d '\r')"
+            actual_scope="$(unzip -p "$output" META-INF/xposed/scope.list | tr -d '\r')"
+            actual_entry="$(unzip -p "$output" META-INF/xposed/java_init.list | tr -d '\r')"
+            [[ "$actual_module_prop" == "$expected_module_prop" ]] || {
+              echo "::error::$classifier has invalid modern Xposed module metadata"
+              exit 1
+            }
+            [[ "$actual_scope" == "$expected_scope" ]] || {
+              echo "::error::$classifier has an unexpected static Xposed scope"
+              exit 1
+            }
+            [[ "$actual_entry" == "$expected_entry" ]] || {
+              echo "::error::$classifier has an unexpected modern Xposed entry point"
+              exit 1
+            }
+            if unzip -Z1 "$output" | grep -Fxq 'assets/xposed_init'; then
+              echo "::error::$classifier still contains the legacy Xposed entry point"
+              exit 1
+            fi
           done
 
           package_line="$($aapt2 dump badging "$dist_dir/universal.apk" | sed -n '1p')"

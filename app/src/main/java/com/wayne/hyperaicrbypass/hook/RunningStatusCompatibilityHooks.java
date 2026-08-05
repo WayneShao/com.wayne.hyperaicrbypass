@@ -2,9 +2,9 @@ package com.wayne.hyperaicrbypass.hook;
 
 import com.wayne.hyperaicrbypass.config.ConfigClient;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
+import com.wayne.hyperaicrbypass.xposed.ModernHook;
+import com.wayne.hyperaicrbypass.xposed.ModernXposed;
+import com.wayne.hyperaicrbypass.xposed.ReflectionHelpers;
 
 public final class RunningStatusCompatibilityHooks {
     private static final String TAG = "HyperAICRBypass";
@@ -21,19 +21,19 @@ public final class RunningStatusCompatibilityHooks {
         int installed = 0;
         installed += installPutInt() ? 1 : 0;
         installed += installGetInt() ? 1 : 0;
-        XposedBridge.log(TAG + ": running-status compatibility hooks=" + installed + "/2");
+        ModernXposed.log(TAG + ": running-status compatibility hooks=" + installed + "/2");
         return installed;
     }
 
     private boolean installPutInt() {
         try {
-            XposedHelpers.findAndHookMethod(
+            ReflectionHelpers.findAndHookMethod(
                     "android.app.SharedPreferencesImpl$EditorImpl",
                     classLoader,
                     "putInt",
                     String.class,
                     int.class,
-                    new XC_MethodHook() {
+                    new ModernHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
                             String key = param.args[0] instanceof String value ? value : null;
@@ -46,27 +46,27 @@ public final class RunningStatusCompatibilityHooks {
                             );
                             if (normalized != original) {
                                 param.args[1] = normalized;
-                                XposedBridge.log(TAG + ": putInt(runningStatus,-2) -> 0");
+                                ModernXposed.log(TAG + ": putInt(runningStatus,-2) -> 0");
                             }
                         }
                     }
             );
             return true;
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": running-status putInt hook unavailable -> " + error);
+            ModernXposed.log(TAG + ": running-status putInt hook unavailable -> " + error);
             return false;
         }
     }
 
     private boolean installGetInt() {
         try {
-            XposedHelpers.findAndHookMethod(
+            ReflectionHelpers.findAndHookMethod(
                     "android.app.SharedPreferencesImpl",
                     classLoader,
                     "getInt",
                     String.class,
                     int.class,
-                    new XC_MethodHook() {
+                    new ModernHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
                             String key = param.args[0] instanceof String value ? value : null;
@@ -80,14 +80,14 @@ public final class RunningStatusCompatibilityHooks {
                             );
                             if (normalized != original) {
                                 param.setResult(normalized);
-                                XposedBridge.log(TAG + ": getInt(runningStatus) -2 -> 0");
+                                ModernXposed.log(TAG + ": getInt(runningStatus) -2 -> 0");
                             }
                         }
                     }
             );
             return true;
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": running-status getInt hook unavailable -> " + error);
+            ModernXposed.log(TAG + ": running-status getInt hook unavailable -> " + error);
             return false;
         }
     }

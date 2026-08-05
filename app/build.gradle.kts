@@ -9,14 +9,15 @@ val splitAbi = providers.gradleProperty("splitAbi")
 
 android {
     namespace = "com.wayne.hyperaicrbypass"
-    compileSdk = 36
+    compileSdk = 37
+    buildToolsVersion = "37.0.0"
 
     defaultConfig {
         applicationId = "com.wayne.hyperaicrbypass"
         minSdk = 28
-        targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        targetSdk = 37
+        versionCode = 2
+        versionName = "1.1.0"
 
         buildConfigField(
             "String",
@@ -37,8 +38,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     buildFeatures {
@@ -47,8 +48,8 @@ android {
 
     packaging {
         resources {
+            merges += "META-INF/xposed/*"
             excludes += setOf(
-                "META-INF/**",
                 "kotlin/**"
             )
         }
@@ -70,9 +71,11 @@ android {
 
 dependencies {
     implementation("org.luckypray:dexkit:2.2.0")
-    compileOnly("de.robv.android.xposed:api:82")
+    compileOnly("io.github.libxposed:api:102.0.0")
+    implementation("io.github.libxposed:service:102.0.0")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("io.github.libxposed:api:102.0.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test:runner:1.7.0")
 }

@@ -8,9 +8,9 @@ import com.wayne.hyperaicrbypass.config.Policy;
 
 import java.util.List;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
+import com.wayne.hyperaicrbypass.xposed.ModernHook;
+import com.wayne.hyperaicrbypass.xposed.ModernXposed;
+import com.wayne.hyperaicrbypass.xposed.ReflectionHelpers;
 
 public final class AicrProviderTraceHooks {
     private static final String TAG = "HyperAICRBypass";
@@ -59,14 +59,14 @@ public final class AicrProviderTraceHooks {
                 }
             }
         }
-        XposedBridge.log(TAG + ": AICR provider trace hooks=" + installed + "/"
+        ModernXposed.log(TAG + ": AICR provider trace hooks=" + installed + "/"
                 + PROVIDERS.size());
         return new InstallResult(installed, uiCompatibilityInstalled);
     }
 
     private boolean install(String providerClass) {
         try {
-            XposedHelpers.findAndHookMethod(
+            ReflectionHelpers.findAndHookMethod(
                     providerClass,
                     classLoader,
                     "call",
@@ -77,14 +77,14 @@ public final class AicrProviderTraceHooks {
             );
             return true;
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": provider trace unavailable " + providerClass
+            ModernXposed.log(TAG + ": provider trace unavailable " + providerClass
                     + " -> " + error);
             return false;
         }
     }
 
-    private XC_MethodHook callback(String providerName) {
-        return new XC_MethodHook() {
+    private ModernHook callback(String providerName) {
+        return new ModernHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 String method = param.args[0] instanceof String value ? value : null;
@@ -93,7 +93,7 @@ public final class AicrProviderTraceHooks {
                 }
                 String caller = param.args[1] instanceof String value ? value : "";
                 Bundle extras = param.args[2] instanceof Bundle bundle ? bundle : null;
-                XposedBridge.log(TAG + ": provider request " + providerName + " " + method
+                ModernXposed.log(TAG + ": provider request " + providerName + " " + method
                         + " uid=" + Binder.getCallingUid() + " arg=" + caller + " "
                         + summarize(extras));
             }
@@ -122,11 +122,11 @@ public final class AicrProviderTraceHooks {
                     result.putInt("is_support_ai_search_progress", normalized.support());
                     result.putInt("in_progress", normalized.inProgress());
                     if (normalized.changed()) {
-                        XposedBridge.log(TAG + ": normalized Gallery AI UI capability progress="
+                        ModernXposed.log(TAG + ": normalized Gallery AI UI capability progress="
                                 + progress + " state=" + normalized.inProgress());
                     }
                 }
-                XposedBridge.log(TAG + ": provider response " + providerName + " " + method
+                ModernXposed.log(TAG + ": provider response " + providerName + " " + method
                         + " " + summarize(result));
             }
         };

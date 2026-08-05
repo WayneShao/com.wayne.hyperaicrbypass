@@ -24,9 +24,9 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
+import com.wayne.hyperaicrbypass.xposed.ModernHook;
+import com.wayne.hyperaicrbypass.xposed.ModernXposed;
+import com.wayne.hyperaicrbypass.xposed.ReflectionHelpers;
 
 public final class PreciseProgressHooks {
     private static final String TAG = "HyperAICRBypass";
@@ -59,25 +59,25 @@ public final class PreciseProgressHooks {
             installed += installSemanticFallbacks(missing);
         }
         notificationChainReady = installed == PreciseProgressHookCatalog.points().size();
-        XposedBridge.log(TAG + ": precise progress hooks=" + installed + "/"
+        ModernXposed.log(TAG + ": precise progress hooks=" + installed + "/"
                 + PreciseProgressHookCatalog.points().size());
         return installed;
     }
 
     private boolean installExact(PreciseProgressHookCatalog.Point point) {
         try {
-            Class<?> owner = XposedHelpers.findClass(point.className(), classLoader);
+            Class<?> owner = ReflectionHelpers.findClass(point.className(), classLoader);
             Method method = owner.getDeclaredMethod(
                     point.methodName(), resolveTypes(point.parameterTypes())
             );
             if (!method.getReturnType().equals(resolveType(point.returnType()))) {
                 throw new NoSuchMethodException("Return type mismatch");
             }
-            XposedBridge.hookMethod(method, callback(point.kind()));
-            XposedBridge.log(TAG + ": precise exact -> " + point.id());
+            ModernXposed.hookMethod(method, callback(point.kind()));
+            ModernXposed.log(TAG + ": precise exact -> " + point.id());
             return true;
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": precise exact unavailable " + point.id()
+            ModernXposed.log(TAG + ": precise exact unavailable " + point.id()
                     + " -> " + error);
             return false;
         }
@@ -89,20 +89,20 @@ public final class PreciseProgressHooks {
             for (PreciseProgressHookCatalog.Point point : points) {
                 Method candidate = findUniqueCandidate(bridge, point);
                 if (candidate == null) {
-                    XposedBridge.log(TAG + ": precise unavailable " + point.kind());
+                    ModernXposed.log(TAG + ": precise unavailable " + point.kind());
                     continue;
                 }
                 try {
-                    XposedBridge.hookMethod(candidate, callback(point.kind()));
+                    ModernXposed.hookMethod(candidate, callback(point.kind()));
                     installed++;
-                    XposedBridge.log(TAG + ": precise semantic -> " + descriptor(candidate));
+                    ModernXposed.log(TAG + ": precise semantic -> " + descriptor(candidate));
                 } catch (Throwable error) {
-                    XposedBridge.log(TAG + ": precise semantic registration failed "
+                    ModernXposed.log(TAG + ": precise semantic registration failed "
                             + point.kind() + " -> " + error);
                 }
             }
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": precise semantic discovery unavailable -> " + error);
+            ModernXposed.log(TAG + ": precise semantic discovery unavailable -> " + error);
         }
         return installed;
     }
@@ -132,14 +132,14 @@ public final class PreciseProgressHooks {
             }
             return candidates.size() == 1 ? candidates.iterator().next() : null;
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": precise semantic query failed " + point.kind()
+            ModernXposed.log(TAG + ": precise semantic query failed " + point.kind()
                     + " -> " + error);
             return null;
         }
     }
 
-    private XC_MethodHook callback(PreciseProgressHookCatalog.Kind kind) {
-        return new XC_MethodHook() {
+    private ModernHook callback(PreciseProgressHookCatalog.Kind kind) {
+        return new ModernHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 if (kind != PreciseProgressHookCatalog.Kind.NOTIFY) {
@@ -151,7 +151,7 @@ public final class PreciseProgressHooks {
                     }
                     forceUiNotification(param);
                 } catch (Throwable error) {
-                    XposedBridge.log(TAG + ": precise " + kind + " callback failed -> "
+                    ModernXposed.log(TAG + ": precise " + kind + " callback failed -> "
                             + error);
                 }
             }
@@ -173,14 +173,14 @@ public final class PreciseProgressHooks {
                         }
                     }
                 } catch (Throwable error) {
-                    XposedBridge.log(TAG + ": precise " + kind + " callback failed -> "
+                    ModernXposed.log(TAG + ": precise " + kind + " callback failed -> "
                             + error);
                 }
             }
         };
     }
 
-    private void forceUiNotification(XC_MethodHook.MethodHookParam param) {
+    private void forceUiNotification(ModernHook.MethodHookParam param) {
         if (param.args.length < 2
                 || !(param.args[0] instanceof Integer scope)
                 || !(param.args[1] instanceof Boolean forceUpdate)
@@ -193,17 +193,17 @@ public final class PreciseProgressHooks {
         }
         param.args[1] = true;
         if (!forceUpdate) {
-            XposedBridge.log(TAG + ": precise notify forced scope=" + scope);
+            ModernXposed.log(TAG + ": precise notify forced scope=" + scope);
         }
     }
 
-    private void capture(XC_MethodHook.MethodHookParam param) {
+    private void capture(ModernHook.MethodHookParam param) {
         latest.set(PreciseProgressHookLogic.snapshotFromCalculator(
                 param.args, param.getResult(), SystemClock.elapsedRealtime()
         ).orElse(null));
     }
 
-    private void transport(XC_MethodHook.MethodHookParam param) {
+    private void transport(ModernHook.MethodHookParam param) {
         if (param.args.length == 0
                 || !(param.args[0] instanceof Integer scope)
                 || !(param.getResult() instanceof Bundle result)) {
@@ -221,10 +221,10 @@ public final class PreciseProgressHooks {
             return;
         }
         PreciseProgressPayload.writeToBundle(result, snapshot);
-        XposedBridge.log(TAG + ": precise payload progress=" + progress.getAsInt());
+        ModernXposed.log(TAG + ": precise payload progress=" + progress.getAsInt());
     }
 
-    private void display(XC_MethodHook.MethodHookParam param) {
+    private void display(ModernHook.MethodHookParam param) {
         if (param.args.length == 0 || !(param.args[0] instanceof Bundle input)) {
             return;
         }
@@ -237,12 +237,12 @@ public final class PreciseProgressHooks {
         if (progress.isEmpty() || snapshot.isEmpty()) {
             return;
         }
-        Object binding = XposedHelpers.getObjectField(param.thisObject, "mBinding");
-        Object status = XposedHelpers.getObjectField(binding, "tvBusinessStatus");
+        Object binding = ReflectionHelpers.getObjectField(param.thisObject, "mBinding");
+        Object status = ReflectionHelpers.getObjectField(binding, "tvBusinessStatus");
         if (!(status instanceof TextView statusView)) {
             return;
         }
-        Object scopeValue = XposedHelpers.getObjectField(param.thisObject, "mScopePkg");
+        Object scopeValue = ReflectionHelpers.getObjectField(param.thisObject, "mScopePkg");
         String scopePackage = scopeValue instanceof String value ? value : null;
         CharSequence original = statusView.getText();
         CharSequence rendered = PreciseProgressDisplay.render(
@@ -254,7 +254,7 @@ public final class PreciseProgressHooks {
         );
         if (rendered != null && !rendered.toString().contentEquals(original)) {
             statusView.setText(rendered);
-            XposedBridge.log(TAG + ": precise display="
+            ModernXposed.log(TAG + ": precise display="
                     + PreciseProgressDisplay.format(snapshot.get()));
         }
     }

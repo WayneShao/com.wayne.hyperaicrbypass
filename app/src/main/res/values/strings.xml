@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Hyper AICR Bypass</string>
     <string name="xposed_description">Configurable and adaptive policy bypass for Xiaomi Gallery AICR.</string>
+    <string name="module_not_active">模块未启用，请先在 LSPosed 中启用</string>
     <string name="master_switch">总开关</string>
     <string name="master_switch_detail">关闭后保留各项选择，所有 Hook 原样放行</string>
     <string name="launcher_icon_switch">显示启动器图标</string>

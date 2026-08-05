@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string-array name="xposed_scope">
-        <item>com.miui.gallery</item>
-        <item>com.xiaomi.aicr</item>
-        <item>com.xiaomi.aiservice</item>
-    </string-array>
-</resources>

@@ -23,9 +23,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
+import com.wayne.hyperaicrbypass.xposed.ModernHook;
+import com.wayne.hyperaicrbypass.xposed.ModernXposed;
+import com.wayne.hyperaicrbypass.xposed.ReflectionHelpers;
 
 public final class GlobalPreciseProgressHooks {
     private static final String TAG = "HyperAICRBypass";
@@ -55,7 +55,7 @@ public final class GlobalPreciseProgressHooks {
         Set<String> installed = new LinkedHashSet<>();
         List<GlobalProgressHookCatalog.Point> missing = new ArrayList<>();
         try {
-            runningStatus = XposedHelpers.getStaticObjectField(
+            runningStatus = ReflectionHelpers.getStaticObjectField(
                     find("com.xiaomi.aicr.searchpro.monitor.RunningStatus"), "INSTANCE");
             for (GlobalProgressHookCatalog.Point point
                     : GlobalProgressHookCatalog.points()) {
@@ -69,11 +69,11 @@ public final class GlobalPreciseProgressHooks {
                 installed.addAll(installSemanticFallbacks(missing));
             }
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": global precise setup failed -> " + error);
+            ModernXposed.log(TAG + ": global precise setup failed -> " + error);
         }
         installedPointIds = Set.copyOf(installed);
         int requiredHooks = GlobalProgressHookCatalog.points().size();
-        XposedBridge.log(TAG + ": global precise hooks=" + installed.size() + "/"
+        ModernXposed.log(TAG + ": global precise hooks=" + installed.size() + "/"
                 + requiredHooks + " direct="
                 + ready(GlobalProgressBranch.MIGRATED_DIRECT_AI)
                 + " post=" + ready(GlobalProgressBranch.MIGRATED_POSTPROCESSED)
@@ -81,8 +81,8 @@ public final class GlobalPreciseProgressHooks {
         return installed.size();
     }
 
-    private XC_MethodHook indexCallback() {
-        return new XC_MethodHook() {
+    private ModernHook indexCallback() {
+        return new ModernHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 try {
@@ -124,7 +124,7 @@ public final class GlobalPreciseProgressHooks {
                             && ready(snapshot.branch())
                             && snapshot.isCompatible(progress, runStart, now)) {
                         GlobalProgressPayload.writeToBundle(result, snapshot);
-                        XposedBridge.log(TAG + ": global precise direct="
+                        ModernXposed.log(TAG + ": global precise direct="
                                 + GlobalProgressDisplay.format(snapshot));
                     }
                 } catch (Throwable error) {
@@ -140,8 +140,8 @@ public final class GlobalPreciseProgressHooks {
         };
     }
 
-    private XC_MethodHook migratedCallback() {
-        return new XC_MethodHook() {
+    private ModernHook migratedCallback() {
+        return new ModernHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 if (enabled()) {
@@ -151,8 +151,8 @@ public final class GlobalPreciseProgressHooks {
         };
     }
 
-    private XC_MethodHook unmigratedCallback() {
-        return new XC_MethodHook() {
+    private ModernHook unmigratedCallback() {
+        return new ModernHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 if (enabled()) {
@@ -162,8 +162,8 @@ public final class GlobalPreciseProgressHooks {
         };
     }
 
-    private XC_MethodHook scopeCallback() {
-        return new XC_MethodHook() {
+    private ModernHook scopeCallback() {
+        return new ModernHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 try {
@@ -191,8 +191,8 @@ public final class GlobalPreciseProgressHooks {
         };
     }
 
-    private XC_MethodHook localCalculatorCallback() {
-        return new XC_MethodHook() {
+    private ModernHook localCalculatorCallback() {
+        return new ModernHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
                 try {
@@ -206,8 +206,8 @@ public final class GlobalPreciseProgressHooks {
         };
     }
 
-    private XC_MethodHook galleryBoundaryCallback() {
-        return new XC_MethodHook() {
+    private ModernHook galleryBoundaryCallback() {
+        return new ModernHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 try {
@@ -234,8 +234,8 @@ public final class GlobalPreciseProgressHooks {
         };
     }
 
-    private XC_MethodHook galleryCalculatorCallback() {
-        return new XC_MethodHook() {
+    private ModernHook galleryCalculatorCallback() {
+        return new ModernHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
                 try {
@@ -249,8 +249,8 @@ public final class GlobalPreciseProgressHooks {
         };
     }
 
-    private XC_MethodHook galleryPostprocessCallback() {
-        return new XC_MethodHook() {
+    private ModernHook galleryPostprocessCallback() {
+        return new ModernHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
                 try {
@@ -265,8 +265,8 @@ public final class GlobalPreciseProgressHooks {
         };
     }
 
-    private XC_MethodHook outgoingCallback() {
-        return new XC_MethodHook() {
+    private ModernHook outgoingCallback() {
+        return new ModernHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 try {
@@ -286,7 +286,7 @@ public final class GlobalPreciseProgressHooks {
                             && ready(snapshot.branch())
                             && snapshot.isCompatible(progress, runStart, now)) {
                         GlobalProgressPayload.writeToBundle(bundle, snapshot);
-                        XposedBridge.log(TAG + ": global precise bridge scope=" + scope
+                        ModernXposed.log(TAG + ": global precise bridge scope=" + scope
                                 + " value=" + GlobalProgressDisplay.format(snapshot));
                     }
                 } catch (Throwable error) {
@@ -296,8 +296,8 @@ public final class GlobalPreciseProgressHooks {
         };
     }
 
-    private XC_MethodHook notificationCallback() {
-        return new XC_MethodHook() {
+    private ModernHook notificationCallback() {
+        return new ModernHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 try {
@@ -316,7 +316,7 @@ public final class GlobalPreciseProgressHooks {
                                     SystemClock.elapsedRealtime())) {
                         param.args[1] = true;
                         if (!forceUpdate) {
-                            XposedBridge.log(TAG
+                            ModernXposed.log(TAG
                                     + ": global precise notify forced scope=" + scope);
                         }
                     }
@@ -327,8 +327,8 @@ public final class GlobalPreciseProgressHooks {
         };
     }
 
-    private XC_MethodHook displayCallback() {
-        return new XC_MethodHook() {
+    private ModernHook displayCallback() {
+        return new ModernHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
                 try {
@@ -346,13 +346,13 @@ public final class GlobalPreciseProgressHooks {
                         return;
                     }
 
-                    Object binding = XposedHelpers.getObjectField(
+                    Object binding = ReflectionHelpers.getObjectField(
                             param.thisObject, "mBinding");
-                    Object descriptionObject = XposedHelpers.getObjectField(
+                    Object descriptionObject = ReflectionHelpers.getObjectField(
                             binding, "tvAiSearchDesc");
-                    Object buttonObject = XposedHelpers.getObjectField(
+                    Object buttonObject = ReflectionHelpers.getObjectField(
                             binding, "mbtAnalyze");
-                    Object buttonTextObject = XposedHelpers.getObjectField(
+                    Object buttonTextObject = ReflectionHelpers.getObjectField(
                             buttonObject, "mTextView");
                     if (!(descriptionObject instanceof TextView description)
                             || !(buttonObject instanceof View button)
@@ -389,7 +389,7 @@ public final class GlobalPreciseProgressHooks {
                         restore(button, originalContentDescription);
                         throw writeError;
                     }
-                    XposedBridge.log(TAG + ": global precise display="
+                    ModernXposed.log(TAG + ": global precise display="
                             + plan.get().buttonText());
                 } catch (Throwable error) {
                     logCallback("display", error);
@@ -407,11 +407,11 @@ public final class GlobalPreciseProgressHooks {
             if (!method.getReturnType().equals(resolveType(point.returnType()))) {
                 throw new NoSuchMethodException("Return type mismatch");
             }
-            XposedBridge.hookMethod(method, callback(point.id()));
-            XposedBridge.log(TAG + ": global precise exact -> " + point.id());
+            ModernXposed.hookMethod(method, callback(point.id()));
+            ModernXposed.log(TAG + ": global precise exact -> " + point.id());
             return true;
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": global precise exact unavailable " + point.id()
+            ModernXposed.log(TAG + ": global precise exact unavailable " + point.id()
                     + " -> " + error);
             return false;
         }
@@ -426,21 +426,21 @@ public final class GlobalPreciseProgressHooks {
             for (GlobalProgressHookCatalog.Point point : missing) {
                 Method candidate = findUniqueCandidate(bridge, point);
                 if (candidate == null) {
-                    XposedBridge.log(TAG + ": global precise unavailable " + point.id());
+                    ModernXposed.log(TAG + ": global precise unavailable " + point.id());
                     continue;
                 }
                 try {
-                    XposedBridge.hookMethod(candidate, callback(point.id()));
+                    ModernXposed.hookMethod(candidate, callback(point.id()));
                     installed.add(point.id());
-                    XposedBridge.log(TAG + ": global precise semantic -> "
+                    ModernXposed.log(TAG + ": global precise semantic -> "
                             + descriptor(candidate));
                 } catch (Throwable error) {
-                    XposedBridge.log(TAG + ": global precise semantic registration failed "
+                    ModernXposed.log(TAG + ": global precise semantic registration failed "
                             + point.id() + " -> " + error);
                 }
             }
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": global precise semantic discovery failed -> "
+            ModernXposed.log(TAG + ": global precise semantic discovery failed -> "
                     + error);
         }
         return installed;
@@ -473,13 +473,13 @@ public final class GlobalPreciseProgressHooks {
             }
             return candidates.size() == 1 ? candidates.iterator().next() : null;
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": global precise semantic query failed "
+            ModernXposed.log(TAG + ": global precise semantic query failed "
                     + point.id() + " -> " + error);
             return null;
         }
     }
 
-    private XC_MethodHook callback(String id) {
+    private ModernHook callback(String id) {
         return switch (id) {
             case "index" -> indexCallback();
             case "migrated" -> migratedCallback();
@@ -553,12 +553,12 @@ public final class GlobalPreciseProgressHooks {
     }
 
     private long runningStartTime() {
-        Object result = XposedHelpers.callMethod(runningStatus, "getRunningStartTime");
+        Object result = ReflectionHelpers.callMethod(runningStatus, "getRunningStartTime");
         return result instanceof Long value ? value : -1L;
     }
 
     private Class<?> find(String name) {
-        return XposedHelpers.findClass(name, classLoader);
+        return ReflectionHelpers.findClass(name, classLoader);
     }
 
     private static Integer bundleInteger(Bundle bundle, String key) {
@@ -584,6 +584,6 @@ public final class GlobalPreciseProgressHooks {
     }
 
     private static void logCallback(String id, Throwable error) {
-        XposedBridge.log(TAG + ": global precise " + id + " failed -> " + error);
+        ModernXposed.log(TAG + ": global precise " + id + " failed -> " + error);
     }
 }

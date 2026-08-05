@@ -3,6 +3,8 @@ package com.wayne.hyperaicrbypass.ui;
 import android.app.Activity;
 import android.content.pm.PackageInfo;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -11,6 +13,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.wayne.hyperaicrbypass.R;
+import com.wayne.hyperaicrbypass.HyperAicrApplication;
 import com.wayne.hyperaicrbypass.adapt.CoverageLayer;
 import com.wayne.hyperaicrbypass.config.BundleConfigCodec;
 import com.wayne.hyperaicrbypass.config.BypassConfig;
@@ -21,6 +24,15 @@ import com.wayne.hyperaicrbypass.config.Policy;
 import java.util.EnumMap;
 
 public final class MainActivity extends Activity {
+    private static final long ACTIVATION_TIMEOUT_MS = 1_000L;
+
+    private final Handler activationHandler = new Handler(Looper.getMainLooper());
+    private final HyperAicrApplication.ActivationListener activationListener = active -> {
+        if (active) {
+            runOnUiThread(this::showSettings);
+        }
+    };
+    private final Runnable activationTimeout = this::enforceActivation;
     private Switch masterSwitch;
     private Switch launcherIconSwitch;
     private Switch selectAllSwitch;
@@ -32,20 +44,53 @@ public final class MainActivity extends Activity {
     private final EnumMap<Policy, Switch> policySwitches = new EnumMap<>(Policy.class);
     private final EnumMap<Policy, TextView> coverageViews = new EnumMap<>(Policy.class);
     private boolean rendering;
+    private boolean settingsVisible;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        HyperAicrApplication.addActivationListener(activationListener);
+        if (HyperAicrApplication.isModuleActive()) {
+            showSettings();
+        } else {
+            activationHandler.postDelayed(activationTimeout, ACTIVATION_TIMEOUT_MS);
+        }
+    }
+
+    private void showSettings() {
+        if (settingsVisible || isFinishing()) {
+            return;
+        }
+        settingsVisible = true;
+        activationHandler.removeCallbacks(activationTimeout);
         setContentView(R.layout.activity_main);
         bindViews();
         createPolicyRows();
         bindActions();
     }
 
+    private void enforceActivation() {
+        if (HyperAicrApplication.isModuleActive()) {
+            showSettings();
+            return;
+        }
+        Toast.makeText(this, R.string.module_not_active, Toast.LENGTH_SHORT).show();
+        finishAndRemoveTask();
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
-        refresh();
+        if (settingsVisible) {
+            refresh();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        activationHandler.removeCallbacks(activationTimeout);
+        HyperAicrApplication.removeActivationListener(activationListener);
+        super.onDestroy();
     }
 
     private void bindViews() {

@@ -9,9 +9,9 @@ import android.widget.Toast;
 import com.wayne.hyperaicrbypass.config.ConfigClient;
 import com.wayne.hyperaicrbypass.config.Policy;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
+import com.wayne.hyperaicrbypass.xposed.ModernHook;
+import com.wayne.hyperaicrbypass.xposed.ModernXposed;
+import com.wayne.hyperaicrbypass.xposed.ReflectionHelpers;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,11 +26,11 @@ public final class HookBootstrap {
     }
 
     public static void installAfterAttach(String packageName, String processName) {
-        XposedHelpers.findAndHookMethod(
+        ReflectionHelpers.findAndHookMethod(
                 Application.class,
                 "attach",
                 Context.class,
-                new XC_MethodHook() {
+                new ModernHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
                         Context context = (Context) param.args[0];
@@ -50,7 +50,7 @@ public final class HookBootstrap {
         }
         initialized = true;
         ConfigClient client = new ConfigClient(context);
-        XposedBridge.log(TAG + ": bootstrap " + packageName + " process=" + processName
+        ModernXposed.log(TAG + ": bootstrap " + packageName + " process=" + processName
                 + " revision=" + client.snapshot().getConfigRevision());
         if ("com.miui.gallery".equals(packageName)) {
             GalleryAicrTraceHooks.install();
