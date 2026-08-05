@@ -43,6 +43,13 @@ com.xiaomi.aicr.aisearch.progress.AISearchProgressActivity
 `refreshUI` reads the integer `analyse_progress`, formats it as `<integer>%`,
 and writes the localized status string to `mBinding.tvBusinessStatus`.
 
+The calculator and progress Activity do not run in the same process. The
+calculator feeds
+`com.xiaomi.aicr.searchpro.monitor.ProgressMonitor.getIndexProgress(...)`, whose
+result Bundle is sent through the existing `SearchDataBaseProvider` and
+`AISearchUIProvider` Binder path to the Activity process. Consequently,
+ordinary process-local memory cannot carry precision all the way to the UI.
+
 ## Design
 
 ### Capture
@@ -50,10 +57,26 @@ and writes the localized status string to `mBinding.tvBusinessStatus`.
 Install an after-hook on the eight-argument `calculateProgress` method. Build an
 immutable progress snapshot from the original arguments and the method result.
 The snapshot contains the numerator, denominator, exact percentage, original
-integer result, and capture time. Store the latest valid snapshot in memory.
+integer result, and monotonic capture time. Store the latest valid snapshot in
+process-local memory in the calculation process.
 
 No database or MediaStore query is performed. The hook uses the exact inputs
 that AICR itself selected for its current progress calculation.
+
+### Transport
+
+Install an after-hook on
+`com.xiaomi.aicr.searchpro.monitor.ProgressMonitor.getIndexProgress(int,
+boolean, Function3)`. For gallery scope `1`, attach the latest compatible
+snapshot to the returned Bundle using module-namespaced keys. The hook adds only
+the numerator, denominator, original integer result, monotonic capture time,
+and payload version. It does not replace or mutate any AICR-owned key.
+
+This is the process boundary already used by AICR for both requested and pushed
+progress updates. Android Binder copies the namespaced fields with the existing
+Bundle into the UI process, and `AISearchUIProvider` preserves unknown Bundle
+fields in its cache. No module provider, file, preference, or database is used
+as a second transport channel.
 
 ### Format
 
@@ -75,8 +98,9 @@ formatting.
 
 Install an after-hook on `AISearchProgressActivity.refreshUI(Bundle)`. Only when
 the activity represents the gallery scope (`mScopePkg == "com.miui.gallery"`),
-retrieve the latest compatible snapshot and replace the first integer or decimal
-percentage token in `mBinding.tvBusinessStatus` with the formatted precise value.
+decode the snapshot carried by that method's Bundle and replace the first integer
+or decimal percentage token in `mBinding.tvBusinessStatus` with the formatted
+precise value.
 
 The original localized sentence is preserved. Only its percentage token changes.
 The progress bar continues to receive AICR's original integer value.
@@ -100,6 +124,10 @@ layer:
 - The calculator fallback requires an integer-returning method with eight
   integer parameters and the current `progress =`, `base`, and `numerator`
   calculation string anchors.
+- The transport fallback requires a Bundle-returning method with `int`,
+  `boolean`, and `kotlin.jvm.functions.Function3` parameters and the
+  `getIndexProgress scope:`, `analyse_progress`, and `analyse_status` string
+  anchors.
 - The UI fallback requires a void-returning method with one `Bundle` parameter
   and the `analyse_progress` and `refreshUIStatus scope:` string anchors.
 
@@ -135,6 +163,8 @@ Unit tests cover:
 - leaving text unchanged when no percentage token exists;
 - snapshot compatibility for exact integer-result equality, the six-minute age
   limit, and gallery scope;
+- namespaced payload encoding and rejection of missing, malformed, or
+  unsupported payload versions;
 - ASCII percentage-token matching and first-token-only replacement;
 - denominator-less AICR completion formatting as `100.000%`;
 - fail-open behavior when no valid snapshot is available.
@@ -146,6 +176,6 @@ while the scan remains active and its underlying integer progress is unchanged.
 ## Out Of Scope
 
 - Changing scan speed, scheduling, temperature policy, or charging behavior.
-- Changing AICR's Provider Bundle schema or integer `analyse_progress` value.
+- Changing any AICR-owned Provider key or the integer `analyse_progress` value.
 - Changing the progress bar to a fractional rendering model.
 - Adding database polling or a second progress data source.
