@@ -68,22 +68,39 @@ returned local integer.
 
 When Gallery migration support is enabled and migration is complete,
 `GalleryProgressMonitor.getRealProgressFromAI()` uses the existing eight-count
-gallery calculator. The module's existing gallery rational is the precise
-component only when its fixed integer equals the gallery value consumed by the
-current global request.
+gallery calculator. Hook
+`GalleryProgressMonitor.getGalleryProgress(boolean, Function3)`, whose return
+is the final gallery integer actually consumed by `getMigratedProgress`.
+The final-gallery hook creates a nested gallery-call context. The module's
+existing eight-count rational becomes a candidate only when it is produced
+inside that call and its fixed integer equals the final method return.
 
 While migration is in progress, AICR may call
 `calculateProgressOnMigrate(float galleryAppProgress, int aiProgress,
 int migratedCount, int mediaCountBefore, int mediaCountCurr)`. Hook this final
 post-processor. Reproduce its native integer result from the original arguments
 and replace only the compatible `aiProgress` term with the same-request precise
-AI rational when deriving a precise migrated-gallery value. Handle its explicit
-early returns (`mediaCountCurr <= 0`, missing previous media, or zero Gallery
-progress) exactly. If the final gallery component cannot be reconstructed from
-the actual call and compatible same-request data, global precision fails open.
+AI rational when deriving a precise migrated-gallery value. Its explicit
+`mediaCountCurr <= 0` return is represented only when this post-processor hook
+actually executes and produces a compatible boundary candidate.
 
-Do not treat an eight-count calculator result as the final gallery component
-merely because both values have the same integer.
+Other migration branches occur earlier in `getMigratingGalleryProgress()`:
+
+- zero previous-media count returns 100 before the post-processor;
+- zero Gallery-app progress falls back directly to the AI calculator; and
+- zero current-media count returns 100 before the post-processor.
+
+The direct-AI branch is precise only when the nested eight-count candidate is
+observed and the final `getGalleryProgress` return accepts it. An early boundary
+return with no nested precise candidate remains native integer text; the module
+does not invent `100.000%` from the final integer alone.
+
+At `getGalleryProgress` exit, accept only a precise candidate produced within
+that exact nested call whose replayed fixed integer equals the final return.
+This proves which value the global formula consumed. A cached gallery return
+with no nested calculation may reuse only the latest accepted final-gallery
+snapshot from the same run and branch when its integer and age are compatible.
+Otherwise it fails open.
 
 ### Global branches
 
@@ -131,7 +148,16 @@ policy changes, rejected data, and hook-side failures.
 
 Build a global snapshot only from components observed within that request.
 Never complete a request by borrowing a missing component from a prior request.
-The immutable snapshot contains:
+The immutable snapshot uses one of these exact branch values:
+
+```text
+MIGRATED_DIRECT_AI
+MIGRATED_POSTPROCESSED
+UNMIGRATED_LOCAL
+```
+
+An unrepresented migration early-boundary path produces no global snapshot.
+The snapshot contains:
 
 ```text
 thousandths_percent (0 through 100000)
@@ -142,9 +168,12 @@ request_generation
 captured_elapsed_realtime
 ```
 
-Use `RunningStatus.getRunningStartTime()` as the run identity. Decimal
-arithmetic uses `long` counts and `BigDecimal`; final formatting uses
-`RoundingMode.HALF_UP` and exactly three fractional digits.
+Use `RunningStatus.getRunningStartTime()` as the run identity. Compatibility
+replay preserves Java's original evaluation order, checked `int` arithmetic,
+and IEEE-754 `float` conversions. Reject a request when an original integer
+multiplication or addition overflows. Use `long` counts and `BigDecimal` only
+for the additional precise value and final `RoundingMode.HALF_UP` formatting
+with exactly three fractional digits.
 
 ### Boundary decisions
 
@@ -230,8 +259,9 @@ progress regression, completion, policy change, or incompatible newer update.
 AICR's own Bundle cache retains unknown namespaced keys on compatible paths.
 
 Accept a payload only when the carrier has scope 31, positive
-`analyse_status`, the same `analyse_progress`, current run identity, supported
-branch, and an age from zero through six minutes.
+`analyse_status`, the same `analyse_progress`, current run identity, one of
+`MIGRATED_DIRECT_AI`, `MIGRATED_POSTPROCESSED`, or `UNMIGRATED_LOCAL`, and an
+age from zero through six minutes.
 
 Preflight all UI objects before mutation:
 
@@ -258,6 +288,8 @@ fallbacks for:
 - `getFixedProgress(int, float, int)`;
 - `calculateScopeProgress(int, boolean, boolean, boolean)`;
 - `calculateProgressOnMigrate(float, int, int, int, int)`;
+- `GalleryProgressMonitor.getGalleryProgress(boolean, Function3)` as the
+  final-gallery consumer boundary;
 - `getMigratedProgress(int, boolean, Function3)` and
   `getUnMigratedProgress(int, boolean, Function3)`;
 - `getIndexProgress(int, boolean, Function3)`;
@@ -280,8 +312,11 @@ Unit tests cover:
   deliberate 100, denominator-zero completion, and count saturation;
 - nested scope push/pop, reentrant requests, exceptions, and unconditional
   thread-local cleanup;
-- full migration, migration-in-progress post-processing, zero Gallery
-  progress, and unsupported/unmigrated formulas;
+- full migration, migration-in-progress post-processing, zero Gallery progress
+  with a direct-AI candidate, early migration boundaries without a candidate,
+  and unsupported/unmigrated formulas;
+- final-gallery acceptance only for a candidate produced inside the same
+  `getGalleryProgress` call, including cached final-gallery reuse rules;
 - deterministic reproduction of the local and global native truncations;
 - rejection of incomplete, cross-request, wrong-run, wrong-branch, malformed,
   stale, or native-incompatible snapshots;
