@@ -45,6 +45,44 @@ public final class GlobalProgressRequestCollectorTest {
         assertFalse(collector.hasActiveRequest());
     }
 
+    @Test
+    public void buildsTheUnmigratedLocalBranchWithoutGalleryData() {
+        GlobalProgressRequestCollector collector = new GlobalProgressRequestCollector();
+        GlobalProgressRequestCollector.IndexToken request = collector.beginIndex(31, false);
+        captureLocals(collector);
+        collector.markUnmigratedLocal();
+
+        GlobalProgressSnapshot snapshot = collector.finishIndex(
+                request, 60, 12_345L, 9_000L
+        ).orElseThrow();
+
+        assertEquals(GlobalProgressBranch.UNMIGRATED_LOCAL, snapshot.branch());
+        assertEquals(60_417, snapshot.thousandthsPercent());
+    }
+
+    @Test
+    public void acceptsPostprocessingOnlyInsideTheSameGalleryBoundary() {
+        GlobalProgressRequestCollector collector = new GlobalProgressRequestCollector();
+        GlobalProgressRequestCollector.IndexToken request = collector.beginIndex(31, false);
+        captureLocals(collector);
+        GlobalProgressRequestCollector.GalleryToken gallery = collector.beginGallery();
+        collector.captureGallery(
+                new Object[]{0, 3, 0, 0, 0, 0, 1, 0}, 33
+        );
+        collector.captureMigrationPostprocess(
+                new Object[]{50.0f, 33, 50, 100, 100}, 83
+        );
+        collector.finishGallery(gallery, 83);
+        collector.markMigratedDirect();
+
+        GlobalProgressSnapshot snapshot = collector.finishIndex(
+                request, 64, 12_345L, 9_000L
+        ).orElseThrow();
+
+        assertEquals(GlobalProgressBranch.MIGRATED_POSTPROCESSED, snapshot.branch());
+        assertEquals(65_000, snapshot.thousandthsPercent());
+    }
+
     private static void captureLocal(
             GlobalProgressRequestCollector collector,
             int scope,
@@ -54,5 +92,12 @@ public final class GlobalProgressRequestCollectorTest {
         GlobalProgressRequestCollector.ScopeToken token = collector.beginScope(scope);
         collector.captureLocal(args);
         collector.finishScope(token, fixed);
+    }
+
+    private static void captureLocals(GlobalProgressRequestCollector collector) {
+        captureLocal(collector, 2, new Object[]{1, 1, 0}, 50);
+        captureLocal(collector, 4, new Object[]{2, 2, 0}, 50);
+        captureLocal(collector, 8, new Object[]{2, 1, 1}, 75);
+        captureLocal(collector, 16, new Object[]{3, 2, 1}, 66);
     }
 }

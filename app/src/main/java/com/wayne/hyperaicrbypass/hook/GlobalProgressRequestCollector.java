@@ -86,6 +86,32 @@ public final class GlobalProgressRequestCollector {
                 .ifPresent(component -> request.galleries.peek().candidate = component);
     }
 
+    public void captureMigrationPostprocess(Object[] args, Object result) {
+        Request request = current();
+        if (request == null || request.galleries.isEmpty()
+                || args == null || args.length != 5
+                || !(args[0] instanceof Float galleryAppProgress)
+                || !(args[1] instanceof Integer aiProgress)
+                || !(args[2] instanceof Integer migratedCount)
+                || !(args[3] instanceof Integer mediaCountBefore)
+                || !(args[4] instanceof Integer mediaCountCurrent)
+                || !(result instanceof Integer observedGalleryProgress)) {
+            return;
+        }
+        GalleryFrame frame = request.galleries.peek();
+        if (frame.candidate == null || frame.candidate.fixedProgress() != aiProgress) {
+            return;
+        }
+        frame.postprocess = new Postprocess(
+                frame.candidate,
+                galleryAppProgress,
+                migratedCount,
+                mediaCountBefore,
+                mediaCountCurrent,
+                observedGalleryProgress
+        );
+    }
+
     public void finishGallery(GalleryToken token, Object result) {
         if (token == null) {
             return;
@@ -95,8 +121,14 @@ public final class GlobalProgressRequestCollector {
             return;
         }
         GalleryFrame frame = request.galleries.pop();
-        if (frame.candidate != null
-                && result instanceof Integer fixed
+        if (!(result instanceof Integer fixed)) {
+            return;
+        }
+        if (frame.postprocess != null
+                && frame.postprocess.observedGalleryProgress == fixed) {
+            request.postprocess = frame.postprocess;
+            request.gallery = frame.postprocess.galleryAi;
+        } else if (frame.candidate != null
                 && frame.candidate.fixedProgress() == fixed) {
             request.gallery = frame.candidate;
         }
@@ -105,7 +137,14 @@ public final class GlobalProgressRequestCollector {
     public void markMigratedDirect() {
         Request request = current();
         if (request != null) {
-            request.migrated = true;
+            request.branch = GlobalProgressBranch.MIGRATED_DIRECT_AI;
+        }
+    }
+
+    public void markUnmigratedLocal() {
+        Request request = current();
+        if (request != null) {
+            request.branch = GlobalProgressBranch.UNMIGRATED_LOCAL;
         }
     }
 
@@ -123,9 +162,40 @@ public final class GlobalProgressRequestCollector {
         try {
             if (request != token.request
                     || request.cache
-                    || !request.migrated
+                    || request.branch == null
                     || !(result instanceof Integer fixed)) {
                 return Optional.empty();
+            }
+            if (request.branch == GlobalProgressBranch.UNMIGRATED_LOCAL) {
+                return GlobalProgressMath.unmigratedLocal(
+                        request.components.get(2),
+                        request.components.get(4),
+                        request.components.get(8),
+                        request.components.get(16),
+                        fixed,
+                        runStartTime,
+                        request.generation,
+                        capturedElapsedRealtime
+                );
+            }
+            if (request.postprocess != null) {
+                Postprocess postprocess = request.postprocess;
+                return GlobalProgressMath.migratedPostprocessed(
+                        postprocess.galleryAi,
+                        postprocess.galleryAppProgress,
+                        postprocess.migratedCount,
+                        postprocess.mediaCountBefore,
+                        postprocess.mediaCountCurrent,
+                        postprocess.observedGalleryProgress,
+                        request.components.get(2),
+                        request.components.get(4),
+                        request.components.get(8),
+                        request.components.get(16),
+                        fixed,
+                        runStartTime,
+                        request.generation,
+                        capturedElapsedRealtime
+                );
             }
             return GlobalProgressMath.migratedDirect(
                     request.gallery,
@@ -206,7 +276,8 @@ public final class GlobalProgressRequestCollector {
         private final Deque<ScopeFrame> scopes = new ArrayDeque<>();
         private final Deque<GalleryFrame> galleries = new ArrayDeque<>();
         private GlobalProgressComponent gallery;
-        private boolean migrated;
+        private GlobalProgressBranch branch;
+        private Postprocess postprocess;
 
         private Request(long generation, boolean cache) {
             this.generation = generation;
@@ -225,5 +296,16 @@ public final class GlobalProgressRequestCollector {
 
     private static final class GalleryFrame {
         private GlobalProgressComponent candidate;
+        private Postprocess postprocess;
+    }
+
+    private record Postprocess(
+            GlobalProgressComponent galleryAi,
+            float galleryAppProgress,
+            int migratedCount,
+            int mediaCountBefore,
+            int mediaCountCurrent,
+            int observedGalleryProgress
+    ) {
     }
 }

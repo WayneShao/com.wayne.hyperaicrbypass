@@ -9,8 +9,18 @@ import android.widget.TextView;
 import com.wayne.hyperaicrbypass.config.ConfigClient;
 import com.wayne.hyperaicrbypass.config.Policy;
 
+import org.luckypray.dexkit.DexKitBridge;
+import org.luckypray.dexkit.query.FindMethod;
+import org.luckypray.dexkit.query.matchers.MethodMatcher;
+import org.luckypray.dexkit.result.MethodData;
+
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import de.robv.android.xposed.XC_MethodHook;
@@ -23,66 +33,52 @@ public final class GlobalPreciseProgressHooks {
     private static final String GLOBAL_PROGRESS = "global_analyse_progress";
     private static final String STATUS = "analyse_status";
     private static final String SCOPE = "scope";
-    private static final int REQUIRED_HOOKS = 8;
 
+    private final Context context;
     private final ClassLoader classLoader;
     private final ConfigClient configClient;
     private final GlobalProgressRequestCollector collector =
             new GlobalProgressRequestCollector();
     private final AtomicReference<GlobalProgressSnapshot> latest =
             new AtomicReference<>();
-    private volatile boolean chainReady;
+    private volatile Set<String> installedPointIds = Set.of();
     private Object runningStatus;
 
     public GlobalPreciseProgressHooks(Context context, ConfigClient configClient) {
+        this.context = context;
         this.classLoader = context.getClassLoader();
         this.configClient = configClient;
     }
 
     public int install() {
-        chainReady = false;
-        int installed = 0;
+        installedPointIds = Set.of();
+        Set<String> installed = new LinkedHashSet<>();
+        List<GlobalProgressHookCatalog.Point> missing = new ArrayList<>();
         try {
-            Class<?> progress = find("com.xiaomi.aicr.searchpro.monitor.ProgressMonitor");
-            Class<?> gallery = find(
-                    "com.xiaomi.aicr.searchpro.monitor.GalleryProgressMonitor");
-            Class<?> activity = find("com.xiaomi.aicr.aisearch.AiSearchSettingActivity");
-            Class<?> function3 = find("kotlin.jvm.functions.Function3");
             runningStatus = XposedHelpers.getStaticObjectField(
                     find("com.xiaomi.aicr.searchpro.monitor.RunningStatus"), "INSTANCE");
-
-            installed += hook(progress, "getIndexProgress", Bundle.class,
-                    new Class<?>[]{int.class, boolean.class, function3},
-                    indexCallback(), "index");
-            installed += hook(progress, "getMigratedProgress", int.class,
-                    new Class<?>[]{int.class, boolean.class, function3},
-                    migratedCallback(), "migrated");
-            installed += hook(progress, "calculateScopeProgress", int.class,
-                    new Class<?>[]{int.class, boolean.class, boolean.class, boolean.class},
-                    scopeCallback(), "local-scope");
-            installed += hook(progress, "calculateProgress", float.class,
-                    new Class<?>[]{int.class, int.class, int.class},
-                    localCalculatorCallback(), "local-calculator");
-            installed += hook(gallery, "getGalleryProgress", int.class,
-                    new Class<?>[]{boolean.class, function3},
-                    galleryBoundaryCallback(), "gallery-boundary");
-            installed += hook(gallery, "calculateProgress", int.class,
-                    new Class<?>[]{int.class, int.class, int.class, int.class,
-                            int.class, int.class, int.class, int.class},
-                    galleryCalculatorCallback(), "gallery-calculator");
-            installed += hook(progress, "updateScopeUIProgressInfo", void.class,
-                    new Class<?>[]{int.class, Bundle.class},
-                    outgoingCallback(), "outgoing-bridge");
-            installed += hook(activity, "refreshAISearchStatus", void.class,
-                    new Class<?>[]{Bundle.class},
-                    displayCallback(), "setting-display");
+            for (GlobalProgressHookCatalog.Point point
+                    : GlobalProgressHookCatalog.points()) {
+                if (installExact(point)) {
+                    installed.add(point.id());
+                } else {
+                    missing.add(point);
+                }
+            }
+            if (!missing.isEmpty()) {
+                installed.addAll(installSemanticFallbacks(missing));
+            }
         } catch (Throwable error) {
             XposedBridge.log(TAG + ": global precise setup failed -> " + error);
         }
-        chainReady = installed == REQUIRED_HOOKS;
-        XposedBridge.log(TAG + ": global precise hooks=" + installed + "/"
-                + REQUIRED_HOOKS + " ready=" + chainReady);
-        return installed;
+        installedPointIds = Set.copyOf(installed);
+        int requiredHooks = GlobalProgressHookCatalog.points().size();
+        XposedBridge.log(TAG + ": global precise hooks=" + installed.size() + "/"
+                + requiredHooks + " direct="
+                + ready(GlobalProgressBranch.MIGRATED_DIRECT_AI)
+                + " post=" + ready(GlobalProgressBranch.MIGRATED_POSTPROCESSED)
+                + " unmigrated=" + ready(GlobalProgressBranch.UNMIGRATED_LOCAL));
+        return installed.size();
     }
 
     private XC_MethodHook indexCallback() {
@@ -120,11 +116,12 @@ public final class GlobalPreciseProgressHooks {
                             token, progress, runStart, now
                     );
                     produced.ifPresent(latest::set);
-                    if (!enabled() || !chainReady || result == null || progress == null) {
+                    if (!enabled() || result == null || progress == null) {
                         return;
                     }
                     GlobalProgressSnapshot snapshot = produced.orElse(latest.get());
                     if (snapshot != null
+                            && ready(snapshot.branch())
                             && snapshot.isCompatible(progress, runStart, now)) {
                         GlobalProgressPayload.writeToBundle(result, snapshot);
                         XposedBridge.log(TAG + ": global precise direct="
@@ -149,6 +146,17 @@ public final class GlobalPreciseProgressHooks {
             protected void beforeHookedMethod(MethodHookParam param) {
                 if (enabled()) {
                     collector.markMigratedDirect();
+                }
+            }
+        };
+    }
+
+    private XC_MethodHook unmigratedCallback() {
+        return new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) {
+                if (enabled()) {
+                    collector.markUnmigratedLocal();
                 }
             }
         };
@@ -241,12 +249,28 @@ public final class GlobalPreciseProgressHooks {
         };
     }
 
+    private XC_MethodHook galleryPostprocessCallback() {
+        return new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) {
+                try {
+                    if (enabled()) {
+                        collector.captureMigrationPostprocess(
+                                param.args, param.getResult());
+                    }
+                } catch (Throwable error) {
+                    logCallback("gallery-postprocess", error);
+                }
+            }
+        };
+    }
+
     private XC_MethodHook outgoingCallback() {
         return new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 try {
-                    if (!enabled() || !chainReady || param.args.length != 2
+                    if (!enabled() || param.args.length != 2
                             || !(param.args[0] instanceof Integer scope)
                             || !(param.args[1] instanceof Bundle bundle)) {
                         return;
@@ -259,6 +283,7 @@ public final class GlobalPreciseProgressHooks {
                     long runStart = runningStartTime();
                     long now = SystemClock.elapsedRealtime();
                     if (progress != null && snapshot != null
+                            && ready(snapshot.branch())
                             && snapshot.isCompatible(progress, runStart, now)) {
                         GlobalProgressPayload.writeToBundle(bundle, snapshot);
                         XposedBridge.log(TAG + ": global precise bridge scope=" + scope
@@ -271,12 +296,43 @@ public final class GlobalPreciseProgressHooks {
         };
     }
 
+    private XC_MethodHook notificationCallback() {
+        return new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) {
+                try {
+                    if (!enabled() || param.args.length != 2
+                            || !(param.args[0] instanceof Integer scope)
+                            || !(param.args[1] instanceof Boolean forceUpdate)) {
+                        return;
+                    }
+                    GlobalProgressSnapshot snapshot = latest.get();
+                    if (snapshot != null
+                            && GlobalProgressHookLogic.shouldForceNotification(
+                                    ready(snapshot.branch()),
+                                    scope,
+                                    snapshot,
+                                    runningStartTime(),
+                                    SystemClock.elapsedRealtime())) {
+                        param.args[1] = true;
+                        if (!forceUpdate) {
+                            XposedBridge.log(TAG
+                                    + ": global precise notify forced scope=" + scope);
+                        }
+                    }
+                } catch (Throwable error) {
+                    logCallback("notification", error);
+                }
+            }
+        };
+    }
+
     private XC_MethodHook displayCallback() {
         return new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
                 try {
-                    if (!enabled() || !chainReady || param.args.length != 1
+                    if (!enabled() || param.args.length != 1
                             || !(param.args[0] instanceof Bundle bundle)) {
                         return;
                     }
@@ -285,7 +341,7 @@ public final class GlobalPreciseProgressHooks {
                     Integer scope = bundleInteger(bundle, SCOPE);
                     Integer status = bundleInteger(bundle, STATUS);
                     Integer progress = bundleInteger(bundle, PROGRESS);
-                    if (payload.isEmpty() || scope == null
+                    if (payload.isEmpty() || !ready(payload.get().branch()) || scope == null
                             || status == null || progress == null) {
                         return;
                     }
@@ -342,31 +398,158 @@ public final class GlobalPreciseProgressHooks {
         };
     }
 
-    private int hook(
-            Class<?> owner,
-            String name,
-            Class<?> returnType,
-            Class<?>[] parameters,
-            XC_MethodHook callback,
-            String id
-    ) {
+    private boolean installExact(GlobalProgressHookCatalog.Point point) {
         try {
-            Method method = owner.getDeclaredMethod(name, parameters);
-            if (!method.getReturnType().equals(returnType)) {
+            Class<?> owner = find(point.className());
+            Method method = owner.getDeclaredMethod(
+                    point.methodName(), resolveTypes(point.parameterTypes())
+            );
+            if (!method.getReturnType().equals(resolveType(point.returnType()))) {
                 throw new NoSuchMethodException("Return type mismatch");
             }
-            XposedBridge.hookMethod(method, callback);
-            XposedBridge.log(TAG + ": global precise exact -> " + id);
-            return 1;
+            XposedBridge.hookMethod(method, callback(point.id()));
+            XposedBridge.log(TAG + ": global precise exact -> " + point.id());
+            return true;
         } catch (Throwable error) {
-            XposedBridge.log(TAG + ": global precise unavailable " + id
+            XposedBridge.log(TAG + ": global precise exact unavailable " + point.id()
                     + " -> " + error);
-            return 0;
+            return false;
         }
+    }
+
+    private Set<String> installSemanticFallbacks(
+            List<GlobalProgressHookCatalog.Point> missing
+    ) {
+        Set<String> installed = new LinkedHashSet<>();
+        try (DexKitBridge bridge = DexKitBridge.create(
+                context.getApplicationInfo().sourceDir)) {
+            for (GlobalProgressHookCatalog.Point point : missing) {
+                Method candidate = findUniqueCandidate(bridge, point);
+                if (candidate == null) {
+                    XposedBridge.log(TAG + ": global precise unavailable " + point.id());
+                    continue;
+                }
+                try {
+                    XposedBridge.hookMethod(candidate, callback(point.id()));
+                    installed.add(point.id());
+                    XposedBridge.log(TAG + ": global precise semantic -> "
+                            + descriptor(candidate));
+                } catch (Throwable error) {
+                    XposedBridge.log(TAG + ": global precise semantic registration failed "
+                            + point.id() + " -> " + error);
+                }
+            }
+        } catch (Throwable error) {
+            XposedBridge.log(TAG + ": global precise semantic discovery failed -> "
+                    + error);
+        }
+        return installed;
+    }
+
+    private Method findUniqueCandidate(
+            DexKitBridge bridge,
+            GlobalProgressHookCatalog.Point point
+    ) {
+        try {
+            MethodMatcher matcher = MethodMatcher.create()
+                    .returnType(point.returnType())
+                    .paramTypes(point.parameterTypes());
+            if (!point.requiredAnchors().isEmpty()) {
+                matcher.usingStrings(point.requiredAnchors());
+            }
+            FindMethod query = FindMethod.create()
+                    .searchPackages(point.packageName())
+                    .matcher(matcher);
+            Set<Method> candidates = new LinkedHashSet<>();
+            for (MethodData data : bridge.findMethod(query)) {
+                if (Modifier.isStatic(data.getModifiers())) {
+                    continue;
+                }
+                Method method = data.getMethodInstance(classLoader);
+                if (method.getDeclaringClass().getName().equals(point.className())
+                        && matchesShape(method, point)) {
+                    candidates.add(method);
+                }
+            }
+            return candidates.size() == 1 ? candidates.iterator().next() : null;
+        } catch (Throwable error) {
+            XposedBridge.log(TAG + ": global precise semantic query failed "
+                    + point.id() + " -> " + error);
+            return null;
+        }
+    }
+
+    private XC_MethodHook callback(String id) {
+        return switch (id) {
+            case "index" -> indexCallback();
+            case "migrated" -> migratedCallback();
+            case "unmigrated" -> unmigratedCallback();
+            case "local-scope" -> scopeCallback();
+            case "local-calculator" -> localCalculatorCallback();
+            case "gallery-boundary" -> galleryBoundaryCallback();
+            case "gallery-calculator" -> galleryCalculatorCallback();
+            case "gallery-postprocess" -> galleryPostprocessCallback();
+            case "notification" -> notificationCallback();
+            case "outgoing-bridge" -> outgoingCallback();
+            case "setting-display" -> displayCallback();
+            default -> throw new IllegalArgumentException("Unknown global hook " + id);
+        };
+    }
+
+    private boolean matchesShape(
+            Method method,
+            GlobalProgressHookCatalog.Point point
+    ) {
+        if (!method.getReturnType().getName().equals(point.returnType())
+                || Modifier.isStatic(method.getModifiers())) {
+            return false;
+        }
+        Class<?>[] parameters = method.getParameterTypes();
+        if (parameters.length != point.parameterTypes().size()) {
+            return false;
+        }
+        for (int index = 0; index < parameters.length; index++) {
+            if (!parameters[index].getName().equals(point.parameterTypes().get(index))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Class<?>[] resolveTypes(List<String> names) throws ClassNotFoundException {
+        Class<?>[] types = new Class<?>[names.size()];
+        for (int index = 0; index < names.size(); index++) {
+            types[index] = resolveType(names.get(index));
+        }
+        return types;
+    }
+
+    private Class<?> resolveType(String name) throws ClassNotFoundException {
+        return switch (name) {
+            case "boolean" -> boolean.class;
+            case "float" -> float.class;
+            case "int" -> int.class;
+            case "void" -> void.class;
+            default -> Class.forName(name, false, classLoader);
+        };
+    }
+
+    private static String descriptor(Method method) {
+        List<String> parameters = new ArrayList<>();
+        for (Class<?> type : method.getParameterTypes()) {
+            parameters.add(type.getName());
+        }
+        return method.getDeclaringClass().getName() + "#" + method.getName()
+                + "(" + String.join(",", parameters) + ")";
     }
 
     private boolean enabled() {
         return configClient.snapshot().shouldBypass(Policy.AI_UI_CAPABILITY);
+    }
+
+    private boolean ready(GlobalProgressBranch branch) {
+        return installedPointIds.containsAll(
+                GlobalProgressHookCatalog.requiredPointIds(branch));
     }
 
     private long runningStartTime() {
