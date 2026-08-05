@@ -10,6 +10,23 @@
 
 ---
 
+## MVP Execution Order
+
+Deliver the verified current-device path before the full compatibility matrix:
+
+1. Implement the exact AICR 4.0.6 migrated/direct-AI calculation currently
+   selected by the installed Gallery manifest (`useCoreAlgo=true`).
+2. Add the distinct global payload, the `updateScopeUIProgressInfo` outgoing
+   Bundle bridge, and coordinated setting-screen rendering.
+3. Reuse the already-working Gallery scope-1 forced notification for live MVP
+   updates while Gallery analysis is active.
+4. Build, deploy, and verify both controls on the current device.
+5. Only after live proof, add migration-postprocessed, unmigrated, contributor
+   notification, and semantic fallback coverage from the remaining tasks.
+
+The MVP still uses focused tests for formula replay, payload coexistence, and
+render decisions. It does not wait for the exhaustive branch/failure matrix.
+
 ## File Structure
 
 Create focused classes under app/src/main/java/com/wayne/hyperaicrbypass/hook/:
@@ -268,4 +285,3 @@ Review native replay, collector cleanup, final-Gallery boundary, payload coexist
 - [ ] **Step 3: Prepare the stable branch**
 
 Do not merge or push until live verification passes and the user chooses the integration action.
-
