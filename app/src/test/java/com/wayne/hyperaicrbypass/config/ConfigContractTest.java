@@ -13,7 +13,7 @@ import java.util.Map;
 public class ConfigContractTest {
     @Test
     public void stableAuthorityAndOperationsAreFixed() {
-        assertEquals("com.example.hyperaicrbypass.settings", ConfigContract.AUTHORITY);
+        assertEquals("com.wayne.hyperaicrbypass.settings", ConfigContract.AUTHORITY);
         assertEquals("get_snapshot", ConfigContract.METHOD_GET_SNAPSHOT);
         assertEquals("set_policy", ConfigContract.METHOD_SET_POLICY);
         assertEquals("report_coverage", ConfigContract.METHOD_REPORT_COVERAGE);
@@ -68,7 +68,7 @@ public class ConfigContractTest {
 
     private static CallerAuthorizer authorizer() {
         return new CallerAuthorizer(1000, uid -> switch (uid) {
-            case 1000 -> List.of("com.example.hyperaicrbypass");
+            case 1000 -> List.of("com.wayne.hyperaicrbypass");
             case 2000 -> List.of("com.xiaomi.aicr", "com.xiaomi.aiservice");
             case 3000 -> List.of("com.miui.gallery");
             default -> List.of("other.app");

@@ -63,7 +63,7 @@
 
 ## 安装与作用域
 
-从早期本地调试版切换到正式 Release 时，如果 Android 提示签名不一致，必须先卸载旧调试版再安装正式版，并在 LSPosed 中重新启用模块和作用域。这只发生在首次切换正式签名时；从 2.0.0 开始的公开版本会持续使用同一把永久 Release 密钥，可以正常覆盖升级。
+旧的本地调试模块使用包名 `com.example.hyperaicrbypass`，与正式版是两个不同应用，不能覆盖迁移。安装正式版前应卸载旧模块，再安装 `com.wayne.hyperaicrbypass` 并在 LSPosed 中重新启用模块和作用域。从正式版 1.0.0 开始，公开版本会持续使用同一把永久 Release 密钥，可以正常覆盖升级。
 
 1. 安装 Release 中的 `universal` APK。除非明确知道被 Hook 目标进程的 ABI，否则不要选择分架构 APK。
 2. 在 LSPosed 中启用模块。
@@ -127,10 +127,10 @@ tag 必须与 APK 内版本严格对应，格式为：
 <versionCode>-<versionName>
 ```
 
-当前 `versionCode=2`、`versionName=2.0.0`，对应 tag：
+首个正式版本 `versionCode=1`、`versionName=1.0.0`，对应 tag：
 
 ```text
-2-2.0.0
+1-1.0.0
 ```
 
 tag 推送后，Release 工作流会运行单元测试，构建 universal、`arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64` 五个 APK，使用同一正式证书签名并逐个验签。所有检查完成前 Release 保持为 draft；已经公开的同版本 Release 不会被覆盖。
@@ -139,7 +139,7 @@ tag 推送后，Release 工作流会运行单元测试，构建 universal、`arm
 
 ## 上架 Xposed Modules Repository
 
-当前仓库中的 Release 是源码仓库发布，不会自动出现在 Xposed Modules Repository。后续上架时，按[官方提交说明](https://github.com/Xposed-Modules-Repo/submission)提交 `[submission] com.example.hyperaicrbypass`，或按官方 transfer 流程转移现有仓库。
+当前仓库中的 Release 是源码仓库发布，不会自动出现在 Xposed Modules Repository。后续上架时，按[官方提交说明](https://github.com/Xposed-Modules-Repo/submission)提交 `[submission] com.wayne.hyperaicrbypass`，或按官方 transfer 流程转移现有仓库。
 
 官方 package-named 仓库的 Release 只上传经过同一证书签名的 universal APK，并保持相同的 `versionCode-versionName` tag。不要只替换已经发布的 APK 资源；任何二进制变化都应提高应用版本并创建新 tag，以保证官方仓库能够检测更新。
 

@@ -3,7 +3,7 @@ package com.wayne.hyperaicrbypass.config;
 import java.util.Objects;
 
 public final class ConfigContract {
-    public static final String AUTHORITY = "com.example.hyperaicrbypass.settings";
+    public static final String AUTHORITY = "com.wayne.hyperaicrbypass.settings";
 
     public static final String METHOD_GET_SNAPSHOT = "get_snapshot";
     public static final String METHOD_SET_MASTER = "set_master";

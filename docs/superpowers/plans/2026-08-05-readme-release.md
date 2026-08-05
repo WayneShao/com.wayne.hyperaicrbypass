@@ -131,7 +131,7 @@ before creating a tag and report the exact remaining secret configuration.
 
 - [ ] **Step 5: Commit, push, and trigger CI**
 
-Commit tracked changes, push `master`, then create and push tag `2-2.0.0` only
+Commit tracked changes, push `master`, then create and push tag `1-1.0.0` only
 after ACLs, fingerprint checks, backup hash checks, and all Actions secrets are
 confirmed. Watch the workflow through completion and
 verify the source Release contains five signed APK assets. Document that later

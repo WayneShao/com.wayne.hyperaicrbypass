@@ -19,7 +19,7 @@
 
         <provider
             android:name="com.wayne.hyperaicrbypass.config.BypassSettingsProvider"
-            android:authorities="com.example.hyperaicrbypass.settings"
+            android:authorities="com.wayne.hyperaicrbypass.settings"
             android:exported="true"
             android:grantUriPermissions="false"
             tools:ignore="ExportedContentProvider" />

@@ -12,16 +12,16 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.hyperaicrbypass"
+        applicationId = "com.wayne.hyperaicrbypass"
         minSdk = 28
         targetSdk = 36
-        versionCode = 2
-        versionName = "2.0.0"
+        versionCode = 1
+        versionName = "1.0.0"
 
         buildConfigField(
             "String",
             "SETTINGS_AUTHORITY",
-            "\"com.example.hyperaicrbypass.settings\""
+            "\"com.wayne.hyperaicrbypass.settings\""
         )
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

@@ -31,9 +31,10 @@ without committing signing material.
 - source build and release instructions.
 
 Store metadata files `SUMMARY`, `SCOPE`, and `SOURCE_URL` mirror the official
-example repository format. The package name remains
-`com.example.hyperaicrbypass`; changing it would break in-place upgrades and
-LSPosed module identity.
+example repository format. The first public package name is
+`com.wayne.hyperaicrbypass`. The obsolete local-debug package
+`com.example.hyperaicrbypass` is not part of the public version line and does
+not support in-place migration to the new LSPosed module identity.
 
 ## APK Outputs
 
@@ -84,7 +85,7 @@ workflow:
 8. creates a draft Release with all assets and publishes it only after upload
    succeeds.
 
-For version code `2` and version name `2.0.0`, the valid tag is `2-2.0.0`.
+For version code `1` and version name `1.0.0`, the valid tag is `1-1.0.0`.
 
 The source-repository Release is not automatically an Xposed Modules Repository
 release. Later store submission must either transfer/rename the repository as
