@@ -102,6 +102,10 @@ with no nested calculation may reuse only the latest accepted final-gallery
 snapshot from the same run and branch when its integer and age are compatible.
 Otherwise it fails open.
 
+`MIGRATED_DIRECT_AI` covers both a migration-complete direct AI calculation
+and the migration-in-progress fallback used when Gallery-app progress is zero;
+both paths consume the same verified final AI candidate.
+
 ### Global branches
 
 `ProgressMonitor.getIndexProgress(...)` selects the branch by calling
@@ -202,6 +206,10 @@ The global payload is attached to a direct scope-31 `getIndexProgress` result
 when the same request produced it. Cached direct results may receive only a
 fresh, same-run, same-branch latest snapshot whose fixed integer matches
 `analyse_progress`.
+
+`getMigratedProgress(scope=31, cache=true)` reads persisted aggregate integers
+directly. Its precision therefore uses this whole-global cached-result rule,
+not the separate cached `getGalleryProgress` final-component reuse rule.
 
 ### Outgoing live-push bridge
 
