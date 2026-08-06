@@ -42,7 +42,9 @@ public final class RunningStatusCompatibilityHooks {
                                 return;
                             }
                             int normalized = RunningStatusCompatibility.normalize(
-                                    configClient.snapshot(), key, original
+                                    configClient.shouldBypass(
+                                            com.wayne.hyperaicrbypass.config.Policy.TEMPERATURE
+                                    ), key, original
                             );
                             if (normalized != original) {
                                 param.args[1] = normalized;
@@ -76,7 +78,9 @@ public final class RunningStatusCompatibilityHooks {
                                 return;
                             }
                             int normalized = RunningStatusCompatibility.normalize(
-                                    configClient.snapshot(), key, original
+                                    configClient.shouldBypass(
+                                            com.wayne.hyperaicrbypass.config.Policy.TEMPERATURE
+                                    ), key, original
                             );
                             if (normalized != original) {
                                 param.setResult(normalized);

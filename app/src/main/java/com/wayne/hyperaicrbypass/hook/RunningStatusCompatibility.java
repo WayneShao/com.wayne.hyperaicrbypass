@@ -11,7 +11,11 @@ public final class RunningStatusCompatibility {
     }
 
     public static int normalize(BypassConfig config, String key, int value) {
-        if (config.shouldBypass(Policy.TEMPERATURE)
+        return normalize(config.shouldBypass(Policy.TEMPERATURE), key, value);
+    }
+
+    public static int normalize(boolean bypassTemperature, String key, int value) {
+        if (bypassTemperature
                 && RUNNING_STATUS_KEY.equals(key)
                 && value == OVER_TEMPERATURE_STATUS) {
             return 0;

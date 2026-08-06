@@ -82,7 +82,7 @@ public final class ExactAicrHooks {
         return new ModernHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
-                if (!configClient.snapshot().shouldBypass(spec.policy())) {
+                if (!configClient.shouldBypass(spec.policy())) {
                     return;
                 }
                 switch (spec.behavior()) {

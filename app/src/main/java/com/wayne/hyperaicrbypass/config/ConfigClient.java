@@ -7,14 +7,19 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 
+import com.wayne.hyperaicrbypass.hook.ExternalPowerMonitor;
+
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 
 public final class ConfigClient implements AutoCloseable {
     private final ContentResolver resolver;
     private final AtomicReference<BypassConfig> snapshot =
             new AtomicReference<>(BypassConfig.defaults());
     private final ContentObserver observer;
+    private final ExternalPowerMonitor powerMonitor;
+    private final BooleanSupplier externalPowerConnected;
     private boolean observing;
     private volatile Consumer<BypassConfig> listener = config -> { };
 
@@ -22,6 +27,8 @@ public final class ConfigClient implements AutoCloseable {
         Context applicationContext = context.getApplicationContext();
         Context resolverContext = applicationContext == null ? context : applicationContext;
         resolver = resolverContext.getContentResolver();
+        powerMonitor = new ExternalPowerMonitor(resolverContext);
+        externalPowerConnected = powerMonitor::isConnected;
         observer = new ContentObserver(new Handler(Looper.getMainLooper())) {
             @Override
             public void onChange(boolean selfChange) {
@@ -37,8 +44,32 @@ public final class ConfigClient implements AutoCloseable {
         refresh();
     }
 
+    ConfigClient(BypassConfig initial, BooleanSupplier externalPowerConnected) {
+        resolver = null;
+        observer = null;
+        powerMonitor = null;
+        this.externalPowerConnected = externalPowerConnected;
+        snapshot.set(initial);
+    }
+
     public BypassConfig snapshot() {
         return snapshot.get();
+    }
+
+    public OperatingMode effectiveMode() {
+        return snapshot().effectiveMode(externalPowerConnected.getAsBoolean());
+    }
+
+    public boolean shouldBypass(Policy policy) {
+        return snapshot().shouldBypass(policy, externalPowerConnected.getAsBoolean());
+    }
+
+    public boolean shouldPause() {
+        return snapshot().shouldPause(externalPowerConnected.getAsBoolean());
+    }
+
+    public ProgressPrecision progressPrecision() {
+        return snapshot().getProgressPrecision();
     }
 
     public void setListener(Consumer<BypassConfig> listener) {
@@ -46,6 +77,9 @@ public final class ConfigClient implements AutoCloseable {
     }
 
     public void refresh() {
+        if (resolver == null) {
+            return;
+        }
         try {
             Bundle response = resolver.call(
                     BypassSettingsProvider.CONTENT_URI,
@@ -80,9 +114,12 @@ public final class ConfigClient implements AutoCloseable {
 
     @Override
     public void close() {
-        if (observing) {
+        if (observing && resolver != null && observer != null) {
             resolver.unregisterContentObserver(observer);
             observing = false;
+        }
+        if (powerMonitor != null) {
+            powerMonitor.close();
         }
     }
 }
