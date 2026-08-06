@@ -1,6 +1,7 @@
 package com.wayne.hyperaicrbypass.hook;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -62,6 +63,18 @@ public class AicrProviderTraceHooksTest {
         assertTrue(database.requiredAnchors().contains("method_algo_analyse_stop"));
         assertTrue(ui.requiredAnchors().contains("method_change_algo_state"));
         assertTrue(ui.requiredAnchors().contains("is_run_algo"));
+    }
+
+    @Test
+    public void semanticProviderCandidateMustBeContentProviderCallMethod() {
+        AicrProviderHookSpec spec = AicrProviderHookSpec.criticalCatalog().get(0);
+
+        assertTrue(AicrProviderTraceHooks.isEligibleSemanticCandidate(
+                "call", true, "android.os.Bundle", spec.parameterTypes(), false, spec));
+        assertFalse(AicrProviderTraceHooks.isEligibleSemanticCandidate(
+                "helper", true, "android.os.Bundle", spec.parameterTypes(), false, spec));
+        assertFalse(AicrProviderTraceHooks.isEligibleSemanticCandidate(
+                "call", false, "android.os.Bundle", spec.parameterTypes(), false, spec));
     }
 
     private static AicrProviderTraceHooks.Action action(

@@ -65,8 +65,6 @@ public record GlobalProgressSnapshot(
             long currentRunStartTime,
             long nowElapsedRealtime
     ) {
-        return fixedProgress == progress
-                && runStartTime == currentRunStartTime
-                && nowElapsedRealtime >= capturedElapsedRealtime;
+        return isCompatible(progress, currentRunStartTime, nowElapsedRealtime);
     }
 }

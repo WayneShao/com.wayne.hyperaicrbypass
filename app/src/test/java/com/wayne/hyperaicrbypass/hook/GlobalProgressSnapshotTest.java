@@ -10,12 +10,12 @@ import java.util.Optional;
 
 public final class GlobalProgressSnapshotTest {
     @Test
-    public void keepsTransportStrictButAllowsStableSameRunDisplay() {
+    public void transportAndDisplayRequireFreshSameRunSnapshots() {
         GlobalProgressSnapshot snapshot = snapshot(12_345L, 8_000L);
 
         assertTrue(snapshot.isCompatible(85, 12_345L, 9_000L));
         assertFalse(snapshot.isCompatible(85, 12_345L, 368_001L));
-        assertTrue(snapshot.isDisplayCompatible(85, 12_345L, 368_001L));
+        assertFalse(snapshot.isDisplayCompatible(85, 12_345L, 368_001L));
         assertFalse(snapshot.isDisplayCompatible(84, 12_345L, 9_000L));
         assertFalse(snapshot.isDisplayCompatible(85, 12_346L, 9_000L));
         assertFalse(snapshot.isDisplayCompatible(85, 12_345L, 7_999L));

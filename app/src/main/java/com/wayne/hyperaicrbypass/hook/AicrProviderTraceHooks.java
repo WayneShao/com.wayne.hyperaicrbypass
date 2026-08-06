@@ -2,6 +2,7 @@ package com.wayne.hyperaicrbypass.hook;
 
 import android.os.Binder;
 import android.os.Bundle;
+import android.content.ContentProvider;
 import android.content.Context;
 
 import com.wayne.hyperaicrbypass.config.ConfigClient;
@@ -142,9 +143,14 @@ public final class AicrProviderTraceHooks {
                 return false;
             }
             Method method = selected.getMethodInstance(classLoader);
-            if (!method.getReturnType().getName().equals(spec.returnType())
-                    || !parameterNames(method).equals(spec.parameterTypes())
-                    || Modifier.isStatic(method.getModifiers())) {
+            if (!isEligibleSemanticCandidate(
+                    method.getName(),
+                    ContentProvider.class.isAssignableFrom(method.getDeclaringClass()),
+                    method.getReturnType().getName(),
+                    parameterNames(method),
+                    Modifier.isStatic(method.getModifiers()),
+                    spec
+            )) {
                 return false;
             }
             return installMethod(
@@ -298,6 +304,21 @@ public final class AicrProviderTraceHooks {
             return Action.CONVERT_UI_START_TO_PAUSE;
         }
         return Action.ALLOW;
+    }
+
+    static boolean isEligibleSemanticCandidate(
+            String methodName,
+            boolean contentProviderOwner,
+            String returnType,
+            List<String> parameterTypes,
+            boolean isStatic,
+            AicrProviderHookSpec spec
+    ) {
+        return "call".equals(methodName)
+                && contentProviderOwner
+                && spec.returnType().equals(returnType)
+                && spec.parameterTypes().equals(parameterTypes)
+                && !isStatic;
     }
 
     enum Action {

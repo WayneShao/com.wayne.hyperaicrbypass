@@ -100,6 +100,7 @@ public final class MainActivity extends Activity {
         } catch (RuntimeException ignored) {
             observingSettings = false;
         }
+        refresh();
     }
 
     private void enforceActivation() {

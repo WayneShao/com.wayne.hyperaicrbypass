@@ -52,8 +52,13 @@ final class CoverageStore {
         String currentKey = preferences.getString(
                 ConfigContract.KEY_EXECUTION_DISCOVERY_KEY, null
         );
-        if (coverage != ExecutionCoverage.PENDING
-                && !key.stableValue().equals(currentKey)) {
+        DiscoveryKey current = currentKey == null ? null : new DiscoveryKey(
+                preferences.getLong(ConfigContract.KEY_DISCOVERY_VERSION_CODE, 0L),
+                preferences.getLong(ConfigContract.KEY_DISCOVERY_UPDATE_TIME, 0L),
+                preferences.getInt(ConfigContract.KEY_DISCOVERY_SCHEMA_REVISION, 0),
+                preferences.getLong(ConfigContract.KEY_RESCAN_GENERATION, 0L)
+        );
+        if (!ExecutionCoverage.shouldAccept(current, key, coverage)) {
             return;
         }
         if (!preferences.edit()

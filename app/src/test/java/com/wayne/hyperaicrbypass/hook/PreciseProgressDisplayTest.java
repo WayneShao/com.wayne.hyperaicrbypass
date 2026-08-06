@@ -63,7 +63,7 @@ public final class PreciseProgressDisplayTest {
                 "Done 70%", "com.example.other", 70, snapshot, 2_000L));
         assertEquals("Done 70%", PreciseProgressDisplay.render(
                 "Done 70%", "com.miui.gallery", 69, snapshot, 2_000L));
-        assertEquals("Done 70.254%", PreciseProgressDisplay.render(
+        assertEquals("Done 70%", PreciseProgressDisplay.render(
                 "Done 70%", "com.miui.gallery", 70, snapshot, 361_001L));
         assertEquals("Done 70%", PreciseProgressDisplay.render(
                 "Done 70%", "com.miui.gallery", 70, null, 2_000L));

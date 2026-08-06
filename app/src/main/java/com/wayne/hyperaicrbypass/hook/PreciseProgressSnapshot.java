@@ -72,7 +72,6 @@ public record PreciseProgressSnapshot(
     }
 
     public boolean isDisplayCompatible(int uiProgress, long nowElapsedRealtime) {
-        return fixedProgress == uiProgress
-                && nowElapsedRealtime >= capturedElapsedRealtime;
+        return isCompatible(uiProgress, nowElapsedRealtime);
     }
 }
