@@ -12,6 +12,8 @@ import java.util.Arrays;
 import java.util.Collections;
 
 import com.wayne.hyperaicrbypass.adapt.CoverageLayer;
+import com.wayne.hyperaicrbypass.adapt.DiscoveryKey;
+import com.wayne.hyperaicrbypass.hook.ExecutionCoverage;
 
 public final class BypassSettingsProvider extends ContentProvider {
     public static final Uri CONTENT_URI = Uri.parse("content://" + ConfigContract.AUTHORITY);
@@ -96,6 +98,29 @@ public final class BypassSettingsProvider extends ContentProvider {
                 }
                 yield Bundle.EMPTY;
             }
+            case ConfigContract.METHOD_REPORT_EXECUTION_COVERAGE -> {
+                require(authorizer.canReportCoverage(callerUid), "execution coverage report");
+                DiscoveryKey key = new DiscoveryKey(
+                        requireNonNegativeLong(
+                                extras, ConfigContract.KEY_DISCOVERY_VERSION_CODE
+                        ),
+                        requireNonNegativeLong(
+                                extras, ConfigContract.KEY_DISCOVERY_UPDATE_TIME
+                        ),
+                        requireNonNegativeInt(
+                                extras, ConfigContract.KEY_DISCOVERY_SCHEMA_REVISION
+                        ),
+                        requireNonNegativeLong(extras, ConfigContract.KEY_RESCAN_GENERATION)
+                );
+                ExecutionCoverage coverage = ExecutionCoverage.valueOf(
+                        requireText(extras, ConfigContract.KEY_EXECUTION_COVERAGE)
+                );
+                coverageStore.reportExecution(key, coverage);
+                if (getContext() != null) {
+                    getContext().getContentResolver().notifyChange(CONTENT_URI, null);
+                }
+                yield Bundle.EMPTY;
+            }
             case ConfigContract.METHOD_GET_COVERAGE -> {
                 require(authorizer.canReadSnapshot(callerUid), "coverage read");
                 Bundle response = new Bundle();
@@ -104,6 +129,31 @@ public final class BypassSettingsProvider extends ContentProvider {
                             ConfigContract.coverageKey(entry.getKey()), entry.getValue().name()
                     );
                 }
+                CoverageStore.ExecutionRecord execution = coverageStore.readExecution();
+                response.putString(
+                        ConfigContract.KEY_EXECUTION_COVERAGE,
+                        execution.coverage().name()
+                );
+                response.putString(
+                        ConfigContract.KEY_EXECUTION_DISCOVERY_KEY,
+                        execution.key().stableValue()
+                );
+                response.putLong(
+                        ConfigContract.KEY_DISCOVERY_VERSION_CODE,
+                        execution.key().versionCode()
+                );
+                response.putLong(
+                        ConfigContract.KEY_DISCOVERY_UPDATE_TIME,
+                        execution.key().lastUpdateTime()
+                );
+                response.putInt(
+                        ConfigContract.KEY_DISCOVERY_SCHEMA_REVISION,
+                        execution.key().schemaRevision()
+                );
+                response.putLong(
+                        ConfigContract.KEY_RESCAN_GENERATION,
+                        execution.key().rescanGeneration()
+                );
                 yield response;
             }
             default -> throw new IllegalArgumentException("Unknown provider method: " + method);
@@ -146,6 +196,14 @@ public final class BypassSettingsProvider extends ContentProvider {
             throw new IllegalArgumentException(key + " must not be negative");
         }
         return value;
+    }
+
+    private static int requireNonNegativeInt(Bundle extras, String key) {
+        long value = requireNonNegativeLong(extras, key);
+        if (value > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException(key + " exceeds integer range");
+        }
+        return (int) value;
     }
 
     @Override

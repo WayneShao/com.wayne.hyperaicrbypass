@@ -8,6 +8,7 @@ import android.widget.Toast;
 
 import com.wayne.hyperaicrbypass.config.ConfigClient;
 import com.wayne.hyperaicrbypass.config.Policy;
+import com.wayne.hyperaicrbypass.adapt.DiscoveryKey;
 
 import com.wayne.hyperaicrbypass.xposed.ModernHook;
 import com.wayne.hyperaicrbypass.xposed.ModernXposed;
@@ -57,14 +58,22 @@ public final class HookBootstrap {
             return;
         }
         if ("com.xiaomi.aicr".equals(packageName)) {
+            ExecutionCoverageReporter executionCoverageReporter =
+                    new ExecutionCoverageReporter(context);
+            DiscoveryKey executionKey = executionCoverageReporter.reportPending(
+                    client.snapshot().getRescanGeneration()
+            );
             PowerSaveExecutionHooks powerSaveHooks =
                     new PowerSaveExecutionHooks(context, client);
             PowerSaveExecutionHooks.InstallResult powerSaveResult = powerSaveHooks.install();
             int preciseProgressCount = new PreciseProgressHooks(context, client).install();
             int globalPreciseProgressCount =
                     new GlobalPreciseProgressHooks(context, client).install();
+            AicrProviderTraceHooks providerHookInstaller =
+                    new AicrProviderTraceHooks(context, client);
             AicrProviderTraceHooks.InstallResult providerHooks =
-                    new AicrProviderTraceHooks(context.getClassLoader(), client).install();
+                    providerHookInstaller.install();
+            executionCoverageReporter.report(executionKey, powerSaveResult, providerHooks);
             int compatibilityCount = new RunningStatusCompatibilityHooks(
                     context.getClassLoader(), client
             ).install();
@@ -93,14 +102,24 @@ public final class HookBootstrap {
             client.setListener(config -> {
                 if (rescanGate.tryAdvance(config.getRescanGeneration())) {
                     rescanExecutor.execute(() -> {
+                        DiscoveryKey rescanKey = executionCoverageReporter.reportPending(
+                                config.getRescanGeneration()
+                        );
+                        PowerSaveExecutionHooks.InstallResult rescannedPowerSave =
+                                powerSaveHooks.install();
+                        AicrProviderTraceHooks.InstallResult rescannedProviders =
+                                providerHookInstaller.install();
                         semantic.install(exact.missingSpecs());
                         coverageReporter.report(
                                 exact.policyCounts(),
                                 coverageWithProviderFallback(
                                         semantic.policyCounts(),
-                                        providerHooks.uiCompatibilityInstalled()
+                                        rescannedProviders.uiCompatibilityInstalled()
                                 ),
                                 config.getRescanGeneration()
+                        );
+                        executionCoverageReporter.report(
+                                rescanKey, rescannedPowerSave, rescannedProviders
                         );
                     });
                 }

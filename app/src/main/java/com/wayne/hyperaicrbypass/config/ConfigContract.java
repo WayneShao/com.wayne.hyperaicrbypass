@@ -15,6 +15,8 @@ public final class ConfigContract {
     public static final String METHOD_RESCAN = "rescan";
     public static final String METHOD_REPORT_COVERAGE = "report_coverage";
     public static final String METHOD_GET_COVERAGE = "get_coverage";
+    public static final String METHOD_REPORT_EXECUTION_COVERAGE =
+            "report_execution_coverage";
 
     public static final String KEY_MASTER = "master";
     public static final String KEY_MODE = "mode";
@@ -32,6 +34,11 @@ public final class ConfigContract {
     public static final String KEY_COVERAGE = "coverage";
     public static final String KEY_LAYER = "layer";
     public static final String KEY_GENERATION = "generation";
+    public static final String KEY_EXECUTION_COVERAGE = "execution_coverage";
+    public static final String KEY_DISCOVERY_VERSION_CODE = "discovery_version_code";
+    public static final String KEY_DISCOVERY_UPDATE_TIME = "discovery_update_time";
+    public static final String KEY_DISCOVERY_SCHEMA_REVISION = "discovery_schema_revision";
+    public static final String KEY_EXECUTION_DISCOVERY_KEY = "execution_discovery_key";
     public static final String POLICY_PREFIX = "policy.";
 
     public static final int MAX_SHORT_TEXT_LENGTH = 512;
