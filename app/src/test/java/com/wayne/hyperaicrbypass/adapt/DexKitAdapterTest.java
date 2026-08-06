@@ -6,6 +6,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.wayne.hyperaicrbypass.config.Policy;
 import com.wayne.hyperaicrbypass.hook.HookBehavior;
+import com.wayne.hyperaicrbypass.hook.PowerSaveHookSpec;
 
 import org.junit.Test;
 
@@ -54,5 +55,22 @@ public class DexKitAdapterTest {
 
         assertTrue(covered.containsAll(EnumSet.complementOf(
                 EnumSet.of(Policy.TASK_CONSTRAINTS))));
+    }
+
+    @Test
+    public void powerSaveSemanticFallbacksRequireFullBooleanShapesAndDistinctAnchors() {
+        PowerSaveHookSpec start = PowerSaveHookSpec.catalog().stream()
+                .filter(spec -> spec.methodName().equals("checkCanStart"))
+                .findFirst().orElseThrow();
+        PowerSaveHookSpec stop = PowerSaveHookSpec.catalog().stream()
+                .filter(spec -> spec.methodName().equals("getNeedStop"))
+                .findFirst().orElseThrow();
+
+        assertEquals("boolean", start.returnType());
+        assertEquals(List.of("int"), start.parameterTypes());
+        assertTrue(start.requiredAnchors().contains("no cloud start config"));
+        assertEquals("boolean", stop.returnType());
+        assertEquals(List.of(), stop.parameterTypes());
+        assertTrue(stop.requiredAnchors().contains("getNeedStop canStop:"));
     }
 }

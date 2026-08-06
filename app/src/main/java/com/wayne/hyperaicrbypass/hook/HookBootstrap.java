@@ -57,6 +57,9 @@ public final class HookBootstrap {
             return;
         }
         if ("com.xiaomi.aicr".equals(packageName)) {
+            PowerSaveExecutionHooks powerSaveHooks =
+                    new PowerSaveExecutionHooks(context, client);
+            PowerSaveExecutionHooks.InstallResult powerSaveResult = powerSaveHooks.install();
             int preciseProgressCount = new PreciseProgressHooks(context, client).install();
             int globalPreciseProgressCount =
                     new GlobalPreciseProgressHooks(context, client).install();
@@ -104,7 +107,7 @@ public final class HookBootstrap {
             });
             if (exact.aicrHookCount() + semanticCount + compatibilityCount
                     + providerHooks.installedCount() + preciseProgressCount
-                    + globalPreciseProgressCount == 0) {
+                    + globalPreciseProgressCount + powerSaveResult.installedCount() == 0) {
                 showTotalFailureOnce(context);
             }
         }
