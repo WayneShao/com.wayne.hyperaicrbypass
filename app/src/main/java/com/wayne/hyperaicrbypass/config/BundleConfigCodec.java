@@ -17,6 +17,8 @@ public final class BundleConfigCodec {
                 bundle.putBoolean(entry.getKey(), booleanValue);
             } else if (value instanceof Number numberValue) {
                 bundle.putLong(entry.getKey(), numberValue.longValue());
+            } else if (value instanceof String stringValue) {
+                bundle.putString(entry.getKey(), stringValue);
             } else {
                 throw new IllegalArgumentException("Unsupported config value: " + entry.getKey());
             }

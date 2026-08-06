@@ -48,6 +48,25 @@ public final class BypassSettingsProvider extends ContentProvider {
                 boolean enabled = requireBoolean(extras, ConfigContract.KEY_MASTER);
                 yield changed(store.update(config -> config.withMaster(enabled)));
             }
+            case ConfigContract.METHOD_SET_MODE -> {
+                require(authorizer.canMutate(callerUid), "settings mutation");
+                OperatingMode mode = OperatingMode.valueOf(
+                        requireText(extras, ConfigContract.KEY_MODE)
+                );
+                yield changed(store.update(config -> config.withMode(mode)));
+            }
+            case ConfigContract.METHOD_SET_POWER_EXCEPTION -> {
+                require(authorizer.canMutate(callerUid), "settings mutation");
+                boolean enabled = requireBoolean(extras, ConfigContract.KEY_POWER_EXCEPTION);
+                yield changed(store.update(config -> config.withPowerException(enabled)));
+            }
+            case ConfigContract.METHOD_SET_PROGRESS_PRECISION -> {
+                require(authorizer.canMutate(callerUid), "settings mutation");
+                ProgressPrecision precision = ProgressPrecision.fromStored(
+                        requireText(extras, ConfigContract.KEY_PROGRESS_PRECISION)
+                );
+                yield changed(store.update(config -> config.withProgressPrecision(precision)));
+            }
             case ConfigContract.METHOD_SET_POLICY -> {
                 require(authorizer.canMutate(callerUid), "settings mutation");
                 String policyKey = requireText(extras, ConfigContract.KEY_POLICY);

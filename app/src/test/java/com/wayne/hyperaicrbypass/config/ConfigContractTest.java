@@ -46,6 +46,10 @@ public class ConfigContractTest {
     public void codecRoundTripsImmutableSnapshotValues() {
         BypassConfig source = BypassConfig.defaults()
                 .withPolicy(Policy.CHARGING, false)
+                .withMode(OperatingMode.POWER_SAVE)
+                .withPowerException(true)
+                .withProgressPrecision(ProgressPrecision.HUNDREDTHS)
+                .withPreciseProgress(false)
                 .nextRescanGeneration();
 
         Map<String, Object> encoded = ConfigCodec.encode(source);
@@ -54,6 +58,26 @@ public class ConfigContractTest {
         assertEquals(source, decoded);
         assertThrows(UnsupportedOperationException.class,
                 () -> encoded.put(ConfigContract.KEY_MASTER, false));
+    }
+
+    @Test
+    public void legacyMasterValueMigratesOnlyWhenModeIsAbsent() {
+        assertEquals(OperatingMode.BYPASS, OperatingMode.fromStored(null, true));
+        assertEquals(OperatingMode.NORMAL, OperatingMode.fromStored(null, false));
+        assertEquals(OperatingMode.POWER_SAVE,
+                OperatingMode.fromStored("POWER_SAVE", false));
+    }
+
+    @Test
+    public void precisionNamesAndScalesAreStable() {
+        assertEquals(0, ProgressPrecision.ORIGINAL.scale());
+        assertEquals(1, ProgressPrecision.TENTHS.scale());
+        assertEquals(2, ProgressPrecision.HUNDREDTHS.scale());
+        assertEquals(3, ProgressPrecision.THOUSANDTHS.scale());
+        assertEquals(ProgressPrecision.HUNDREDTHS,
+                ProgressPrecision.fromStored("HUNDREDTHS"));
+        assertThrows(IllegalArgumentException.class,
+                () -> ProgressPrecision.fromStored("FOUR_DECIMALS"));
     }
 
     @Test

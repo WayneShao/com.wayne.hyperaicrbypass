@@ -17,6 +17,23 @@ public final class ConfigStore {
 
     public synchronized BypassConfig read() {
         BypassConfig defaults = BypassConfig.defaults();
+        boolean legacyMaster = preferences.getBoolean(
+                ConfigContract.KEY_MASTER, defaults.isMasterEnabled()
+        );
+        String storedMode = preferences.contains(ConfigContract.KEY_MODE)
+                ? preferences.getString(ConfigContract.KEY_MODE, null)
+                : null;
+        OperatingMode mode = OperatingMode.fromStored(storedMode, legacyMaster);
+        ProgressPrecision progressPrecision = ProgressPrecision.fromStored(preferences.getString(
+                ConfigContract.KEY_PROGRESS_PRECISION,
+                defaults.getProgressPrecision().name()
+        ));
+        ProgressPrecision lastNonOriginalPrecision = ProgressPrecision.fromStored(
+                preferences.getString(
+                        ConfigContract.KEY_LAST_NON_ORIGINAL_PRECISION,
+                        defaults.getLastNonOriginalPrecision().name()
+                )
+        );
         EnumSet<Policy> selected = EnumSet.noneOf(Policy.class);
         for (Policy policy : Policy.values()) {
             if (preferences.getBoolean(ConfigContract.policyKey(policy), true)) {
@@ -24,7 +41,10 @@ public final class ConfigStore {
             }
         }
         return BypassConfig.create(
-                preferences.getBoolean(ConfigContract.KEY_MASTER, defaults.isMasterEnabled()),
+                mode,
+                preferences.getBoolean(ConfigContract.KEY_POWER_EXCEPTION, false),
+                progressPrecision,
+                lastNonOriginalPrecision,
                 preferences.getBoolean(
                         ConfigContract.KEY_SELECT_ALL_MODE, defaults.isSelectAllMode()
                 ),
@@ -38,6 +58,13 @@ public final class ConfigStore {
         BypassConfig updated = mutation.apply(read());
         SharedPreferences.Editor editor = preferences.edit()
                 .putBoolean(ConfigContract.KEY_MASTER, updated.isMasterEnabled())
+                .putString(ConfigContract.KEY_MODE, updated.getMode().name())
+                .putBoolean(ConfigContract.KEY_POWER_EXCEPTION,
+                        updated.isPowerExceptionEnabled())
+                .putString(ConfigContract.KEY_PROGRESS_PRECISION,
+                        updated.getProgressPrecision().name())
+                .putString(ConfigContract.KEY_LAST_NON_ORIGINAL_PRECISION,
+                        updated.getLastNonOriginalPrecision().name())
                 .putBoolean(ConfigContract.KEY_SELECT_ALL_MODE, updated.isSelectAllMode())
                 .putLong(ConfigContract.KEY_CONFIG_REVISION, updated.getConfigRevision())
                 .putLong(ConfigContract.KEY_RESCAN_GENERATION, updated.getRescanGeneration());

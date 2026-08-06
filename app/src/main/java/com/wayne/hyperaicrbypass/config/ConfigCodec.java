@@ -13,6 +13,11 @@ public final class ConfigCodec {
     public static Map<String, Object> encode(BypassConfig config) {
         Map<String, Object> values = new LinkedHashMap<>();
         values.put(ConfigContract.KEY_MASTER, config.isMasterEnabled());
+        values.put(ConfigContract.KEY_MODE, config.getMode().name());
+        values.put(ConfigContract.KEY_POWER_EXCEPTION, config.isPowerExceptionEnabled());
+        values.put(ConfigContract.KEY_PROGRESS_PRECISION, config.getProgressPrecision().name());
+        values.put(ConfigContract.KEY_LAST_NON_ORIGINAL_PRECISION,
+                config.getLastNonOriginalPrecision().name());
         values.put(ConfigContract.KEY_SELECT_ALL_MODE, config.isSelectAllMode());
         values.put(ConfigContract.KEY_CONFIG_REVISION, config.getConfigRevision());
         values.put(ConfigContract.KEY_RESCAN_GENERATION, config.getRescanGeneration());
@@ -29,6 +34,16 @@ public final class ConfigCodec {
         }
 
         boolean master = requireBoolean(values, ConfigContract.KEY_MASTER);
+        OperatingMode mode = OperatingMode.fromStored(
+                requireString(values, ConfigContract.KEY_MODE), master
+        );
+        boolean powerException = requireBoolean(values, ConfigContract.KEY_POWER_EXCEPTION);
+        ProgressPrecision progressPrecision = ProgressPrecision.fromStored(
+                requireString(values, ConfigContract.KEY_PROGRESS_PRECISION)
+        );
+        ProgressPrecision lastNonOriginalPrecision = ProgressPrecision.fromStored(
+                requireString(values, ConfigContract.KEY_LAST_NON_ORIGINAL_PRECISION)
+        );
         boolean selectAllMode = requireBoolean(values, ConfigContract.KEY_SELECT_ALL_MODE);
         long configRevision = requireNonNegativeLong(values, ConfigContract.KEY_CONFIG_REVISION);
         long rescanGeneration = requireNonNegativeLong(values, ConfigContract.KEY_RESCAN_GENERATION);
@@ -39,13 +54,18 @@ public final class ConfigCodec {
             }
         }
         return BypassConfig.create(
-                master, selectAllMode, selected, configRevision, rescanGeneration
+                mode, powerException, progressPrecision, lastNonOriginalPrecision,
+                selectAllMode, selected, configRevision, rescanGeneration
         );
     }
 
     private static Set<String> expectedKeys() {
         Set<String> keys = new java.util.LinkedHashSet<>();
         keys.add(ConfigContract.KEY_MASTER);
+        keys.add(ConfigContract.KEY_MODE);
+        keys.add(ConfigContract.KEY_POWER_EXCEPTION);
+        keys.add(ConfigContract.KEY_PROGRESS_PRECISION);
+        keys.add(ConfigContract.KEY_LAST_NON_ORIGINAL_PRECISION);
         keys.add(ConfigContract.KEY_SELECT_ALL_MODE);
         keys.add(ConfigContract.KEY_CONFIG_REVISION);
         keys.add(ConfigContract.KEY_RESCAN_GENERATION);
@@ -73,5 +93,13 @@ public final class ConfigCodec {
             throw new IllegalArgumentException(key + " must not be negative");
         }
         return result;
+    }
+
+    private static String requireString(Map<String, ?> values, String key) {
+        Object value = values.get(key);
+        if (!(value instanceof String stringValue)) {
+            throw new IllegalArgumentException(key + " must be text");
+        }
+        return stringValue;
     }
 }
