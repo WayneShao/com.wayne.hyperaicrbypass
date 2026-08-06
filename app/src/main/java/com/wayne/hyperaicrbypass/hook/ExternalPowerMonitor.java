@@ -51,7 +51,7 @@ public final class ExternalPowerMonitor implements AutoCloseable {
         filter.addAction(Intent.ACTION_BATTERY_CHANGED);
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                this.context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
+                this.context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED);
             } else {
                 this.context.registerReceiver(receiver, filter);
             }

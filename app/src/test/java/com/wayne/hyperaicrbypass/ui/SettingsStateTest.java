@@ -7,6 +7,9 @@ import static org.junit.Assert.assertTrue;
 import com.wayne.hyperaicrbypass.adapt.CoverageLayer;
 import com.wayne.hyperaicrbypass.config.BypassConfig;
 import com.wayne.hyperaicrbypass.config.Policy;
+import com.wayne.hyperaicrbypass.config.OperatingMode;
+import com.wayne.hyperaicrbypass.config.ProgressPrecision;
+import com.wayne.hyperaicrbypass.hook.ExecutionCoverage;
 
 import org.junit.Test;
 
@@ -61,5 +64,91 @@ public class SettingsStateTest {
         assertEquals("Partial", state.coverageLabel(Policy.MIGRATION));
         assertTrue(state.isPolicyEditable(Policy.MIGRATION));
         assertEquals("Rescan 4", state.rescanSummary());
+    }
+
+    @Test
+    public void runtimeSwitchesAreMutuallyExclusiveAndCanBothBeOff() {
+        SettingsState bypass = state(
+                BypassConfig.defaults(), ExecutionCoverage.AVAILABLE, false);
+        assertTrue(bypass.isBypassEnabled());
+        assertFalse(bypass.isPowerSaveEnabled());
+
+        SettingsState powerSave = state(
+                BypassConfig.defaults().withMode(OperatingMode.POWER_SAVE),
+                ExecutionCoverage.AVAILABLE,
+                false
+        );
+        assertFalse(powerSave.isBypassEnabled());
+        assertTrue(powerSave.isPowerSaveEnabled());
+
+        SettingsState normal = state(
+                BypassConfig.defaults().withMode(OperatingMode.NORMAL),
+                ExecutionCoverage.AVAILABLE,
+                false
+        );
+        assertFalse(normal.isBypassEnabled());
+        assertFalse(normal.isPowerSaveEnabled());
+        assertEquals("按 AICR 原逻辑运行", normal.runtimeSummary());
+    }
+
+    @Test
+    public void unavailableCoverageBlocksNewPowerSaveButAllowsTurningExistingModeOff() {
+        SettingsState normal = state(
+                BypassConfig.defaults().withMode(OperatingMode.NORMAL),
+                ExecutionCoverage.UNAVAILABLE,
+                false
+        );
+        assertFalse(normal.isPowerSaveToggleEnabled());
+
+        SettingsState active = state(
+                BypassConfig.defaults().withMode(OperatingMode.POWER_SAVE),
+                ExecutionCoverage.UNAVAILABLE,
+                false
+        );
+        assertTrue(active.isPowerSaveToggleEnabled());
+        assertEquals("暂停链适配失败", active.runtimeSummary());
+    }
+
+    @Test
+    public void poweredExceptionUsesSelectedBypassesAndUpdatesSummary() {
+        BypassConfig config = BypassConfig.defaults()
+                .withMode(OperatingMode.POWER_SAVE)
+                .withPowerException(true);
+
+        SettingsState unplugged = state(config, ExecutionCoverage.AVAILABLE, false);
+        assertTrue(unplugged.isPowerExceptionEditable());
+        assertEquals("AICR 已暂停", unplugged.runtimeSummary());
+
+        SettingsState powered = state(config, ExecutionCoverage.AVAILABLE, true);
+        assertEquals("外部供电中，按已选门槛绕过", powered.runtimeSummary());
+    }
+
+    @Test
+    public void progressSwitchAndPrecisionSelectionAreIndependent() {
+        BypassConfig original = BypassConfig.defaults()
+                .withProgressPrecision(ProgressPrecision.HUNDREDTHS)
+                .withPreciseProgress(false)
+                .withMode(OperatingMode.NORMAL);
+        SettingsState disabled = state(original, ExecutionCoverage.AVAILABLE, false);
+
+        assertFalse(disabled.isPreciseProgressEnabled());
+        assertFalse(disabled.isPrecisionSelectorEnabled());
+        assertEquals(ProgressPrecision.HUNDREDTHS, disabled.selectedPrecision());
+
+        SettingsState enabled = state(
+                original.withPreciseProgress(true), ExecutionCoverage.AVAILABLE, false);
+        assertTrue(enabled.isPreciseProgressEnabled());
+        assertTrue(enabled.isPrecisionSelectorEnabled());
+        assertEquals(ProgressPrecision.HUNDREDTHS, enabled.selectedPrecision());
+    }
+
+    private static SettingsState state(
+            BypassConfig config,
+            ExecutionCoverage executionCoverage,
+            boolean externalPowerConnected
+    ) {
+        return new SettingsState(
+                config, "4.0.6", Map.of(), executionCoverage, externalPowerConnected
+        );
     }
 }
