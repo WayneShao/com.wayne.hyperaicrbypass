@@ -246,30 +246,37 @@
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
-                    android:buttonTint="@color/action_primary"
+                    android:layout_marginEnd="2dp"
+                    android:background="@drawable/progress_precision_segment"
+                    android:button="@null"
                     android:gravity="center"
                     android:text="@string/precision_tenths"
-                    android:textColor="@color/text_primary" />
+                    android:textColor="@color/progress_precision_text" />
 
                 <RadioButton
                     android:id="@+id/precision_hundredths"
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
-                    android:buttonTint="@color/action_primary"
+                    android:layout_marginStart="2dp"
+                    android:layout_marginEnd="2dp"
+                    android:background="@drawable/progress_precision_segment"
+                    android:button="@null"
                     android:gravity="center"
                     android:text="@string/precision_hundredths"
-                    android:textColor="@color/text_primary" />
+                    android:textColor="@color/progress_precision_text" />
 
                 <RadioButton
                     android:id="@+id/precision_thousandths"
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
-                    android:buttonTint="@color/action_primary"
+                    android:layout_marginStart="2dp"
+                    android:background="@drawable/progress_precision_segment"
+                    android:button="@null"
                     android:gravity="center"
                     android:text="@string/precision_thousandths"
-                    android:textColor="@color/text_primary" />
+                    android:textColor="@color/progress_precision_text" />
             </RadioGroup>
 
             <LinearLayout
