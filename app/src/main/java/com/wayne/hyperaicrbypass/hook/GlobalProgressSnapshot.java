@@ -59,4 +59,14 @@ public record GlobalProgressSnapshot(
                 && age >= 0L
                 && age <= MAX_AGE_MILLIS;
     }
+
+    public boolean isDisplayCompatible(
+            int progress,
+            long currentRunStartTime,
+            long nowElapsedRealtime
+    ) {
+        return fixedProgress == progress
+                && runStartTime == currentRunStartTime
+                && nowElapsedRealtime >= capturedElapsedRealtime;
+    }
 }

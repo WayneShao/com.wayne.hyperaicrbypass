@@ -7,7 +7,6 @@ import android.view.View;
 import android.widget.TextView;
 
 import com.wayne.hyperaicrbypass.config.ConfigClient;
-import com.wayne.hyperaicrbypass.config.Policy;
 
 import org.luckypray.dexkit.DexKitBridge;
 import org.luckypray.dexkit.query.FindMethod;
@@ -125,7 +124,8 @@ public final class GlobalPreciseProgressHooks {
                             && snapshot.isCompatible(progress, runStart, now)) {
                         GlobalProgressPayload.writeToBundle(result, snapshot);
                         ModernXposed.log(TAG + ": global precise direct="
-                                + GlobalProgressDisplay.format(snapshot));
+                                + GlobalProgressDisplay.format(
+                                        snapshot, configClient.progressPrecision()));
                     }
                 } catch (Throwable error) {
                     // Ensure the request stack is cleared even when runtime reflection fails.
@@ -287,7 +287,8 @@ public final class GlobalPreciseProgressHooks {
                             && snapshot.isCompatible(progress, runStart, now)) {
                         GlobalProgressPayload.writeToBundle(bundle, snapshot);
                         ModernXposed.log(TAG + ": global precise bridge scope=" + scope
-                                + " value=" + GlobalProgressDisplay.format(snapshot));
+                                + " value=" + GlobalProgressDisplay.format(
+                                        snapshot, configClient.progressPrecision()));
                     }
                 } catch (Throwable error) {
                     logCallback("outgoing", error);
@@ -306,14 +307,13 @@ public final class GlobalPreciseProgressHooks {
                             || !(param.args[1] instanceof Boolean forceUpdate)) {
                         return;
                     }
-                    GlobalProgressSnapshot snapshot = latest.get();
-                    if (snapshot != null
-                            && GlobalProgressHookLogic.shouldForceNotification(
-                                    ready(snapshot.branch()),
-                                    scope,
-                                    snapshot,
-                                    runningStartTime(),
-                                    SystemClock.elapsedRealtime())) {
+                    boolean migratedReady = ready(
+                            GlobalProgressBranch.MIGRATED_DIRECT_AI)
+                            || ready(GlobalProgressBranch.MIGRATED_POSTPROCESSED);
+                    boolean unmigratedReady = ready(
+                            GlobalProgressBranch.UNMIGRATED_LOCAL);
+                    if (GlobalProgressHookLogic.shouldForceNotification(
+                            migratedReady, unmigratedReady, scope)) {
                         param.args[1] = true;
                         if (!forceUpdate) {
                             ModernXposed.log(TAG
@@ -330,6 +330,34 @@ public final class GlobalPreciseProgressHooks {
     private ModernHook displayCallback() {
         return new ModernHook() {
             @Override
+            protected void beforeHookedMethod(MethodHookParam param) {
+                try {
+                    if (!enabled() || param.args.length != 1
+                            || !(param.args[0] instanceof Bundle bundle)) {
+                        return;
+                    }
+                    int scope = bundle.getInt(SCOPE, 0);
+                    int status = bundle.getInt(STATUS, 0);
+                    int progress = bundle.getInt(PROGRESS, -1);
+                    int normalized = GlobalProgressHookLogic.normalizeUiStatus(
+                            scope,
+                            status,
+                            progress,
+                            bundle.getBoolean("initiative_start", false),
+                            bundle.getBoolean("initiative_pause", false),
+                            bundle.getBoolean("curr_paused_by_handle", false)
+                    );
+                    if (normalized != status) {
+                        bundle.putInt(STATUS, normalized);
+                        ModernXposed.log(TAG + ": global UI transition status "
+                                + status + " -> " + normalized);
+                    }
+                } catch (Throwable error) {
+                    logCallback("display-transition", error);
+                }
+            }
+
+            @Override
             protected void afterHookedMethod(MethodHookParam param) {
                 try {
                     if (!enabled() || param.args.length != 1
@@ -341,10 +369,47 @@ public final class GlobalPreciseProgressHooks {
                     Integer scope = bundleInteger(bundle, SCOPE);
                     Integer status = bundleInteger(bundle, STATUS);
                     Integer progress = bundleInteger(bundle, PROGRESS);
-                    if (payload.isEmpty() || !ready(payload.get().branch()) || scope == null
-                            || status == null || progress == null) {
+                    if (scope == null || status == null || progress == null) {
                         return;
                     }
+                    Optional<GlobalProgressDisplay.LoadingPlan> loading =
+                            GlobalProgressDisplay.loadingPlan(
+                                    scope,
+                                    progress,
+                                    bundle.getBoolean("initiative_start", false),
+                                    bundle.getBoolean("initiative_pause", false),
+                                    bundle.getBoolean("curr_paused_by_handle", false)
+                            );
+                    if (loading.isPresent()) {
+                        Object binding = ReflectionHelpers.getObjectField(
+                                param.thisObject, "mBinding");
+                        Object buttonObject = ReflectionHelpers.getObjectField(
+                                binding, "mbtAnalyze");
+                        Object buttonTextObject = ReflectionHelpers.getObjectField(
+                                buttonObject, "mTextView");
+                        if (buttonObject instanceof View button
+                                && buttonTextObject instanceof TextView buttonText) {
+                            buttonText.setText(loading.get().buttonText());
+                            button.setContentDescription(loading.get().buttonText());
+                            button.setEnabled(loading.get().enabled());
+                            ModernXposed.log(TAG + ": global precise loading");
+                        }
+                        return;
+                    }
+                    long runStart = runningStartTime();
+                    long now = SystemClock.elapsedRealtime();
+                    boolean transition = bundle.getBoolean("status_change", false)
+                            || bundle.getBoolean("initiative_start", false)
+                            || bundle.getBoolean("initiative_pause", false)
+                            || bundle.getBoolean("curr_paused_by_handle", false);
+                    Optional<GlobalProgressSnapshot> selected =
+                            GlobalProgressHookLogic.displaySnapshot(
+                                    payload, latest.get(), progress, runStart, now, transition
+                            );
+                    if (selected.isEmpty() || !ready(selected.get().branch())) {
+                        return;
+                    }
+                    latest.set(selected.get());
 
                     Object binding = ReflectionHelpers.getObjectField(
                             param.thisObject, "mBinding");
@@ -372,9 +437,10 @@ public final class GlobalPreciseProgressHooks {
                                     scope,
                                     status,
                                     progress,
-                                    payload.get(),
-                                    runningStartTime(),
-                                    SystemClock.elapsedRealtime()
+                                    selected.get(),
+                                    runStart,
+                                    now,
+                                    configClient.progressPrecision()
                             );
                     if (plan.isEmpty()) {
                         return;
@@ -544,7 +610,7 @@ public final class GlobalPreciseProgressHooks {
     }
 
     private boolean enabled() {
-        return configClient.snapshot().shouldBypass(Policy.AI_UI_CAPABILITY);
+        return configClient.progressPrecision().isPrecise();
     }
 
     private boolean ready(GlobalProgressBranch branch) {

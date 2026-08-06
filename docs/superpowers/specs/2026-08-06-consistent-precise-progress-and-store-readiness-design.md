@@ -51,16 +51,26 @@ reported unavailable instead of fabricating a value.
 
 ### Continuous Updates
 
-For scope 1 and 31, force AICR's existing UI notification when the corresponding
-precise hook chain is installed and the feature is enabled. The notification
-already performs a non-cached calculation; forcing delivery only changes whether
-the newly calculated bundle is sent when the native integer has not advanced.
-No timer or additional database scan is introduced.
+Force AICR's existing UI notification when the corresponding precise hook chain
+is installed and the feature is enabled. The dedicated gallery path uses scope
+1. The global path preserves AICR's contributor scopes 1, 2, 4, 8, and 16, plus
+scope 31 when it is sent directly; the unmigrated branch excludes gallery scope
+1. The notification already performs a non-cached calculation, so forcing
+delivery only changes whether the newly calculated bundle is sent when the
+native integer has not advanced. No timer or additional database scan is
+introduced.
 
 Attach the exact payload at the existing `getIndexProgress` and
 `updateScopeUIProgressInfo` boundaries. A bundle may be displayed only when its
-native integer agrees with the exact snapshot. A missing payload remains native;
-it is never turned into `.000%`.
+native integer agrees with the exact snapshot. After a valid precise frame, a
+same-run status-only bundle with the same integer reuses the last verified exact
+snapshot, preventing `precise -> integer -> precise` bouncing. With no verified
+snapshot, the native value remains unchanged and is never turned into `.000%`.
+
+Migration early returns that prove completion (`100`) are represented as an
+exact denominatorless 100% gallery component. Other branches must still supply
+calculator inputs that replay AICR's native integer; otherwise no exact global
+payload is emitted.
 
 ### Display Consistency
 
@@ -68,15 +78,18 @@ The dedicated activity continues to replace the first percentage token in its
 status text.
 
 The global settings page replaces each percentage-bearing field independently:
-description, button text, and content description. Non-percentage state labels
-such as the paused button text remain untouched and no longer prevent the
-description percentage from being made precise.
+description, button text, and content description. This applies to running and
+paused/pre-start carrier states whenever AICR actually renders a native
+percentage. Non-percentage state labels such as the paused button text remain
+untouched and no longer prevent the description percentage from being precise.
+Completion states that AICR hides are not rewritten.
 
 Snapshot age alone must not cause an integer fallback while the native integer
-still matches. Global run-start changes may reuse a recently verified snapshot
-for the immediate start/pause transition when the native integer is unchanged;
-the next forced live response replaces it. Negative age and native integer
-mismatches remain invalid.
+and run still match. A run-start change may carry a verified snapshot forward
+exactly once only when AICR marks the bundle as a start/pause/status transition
+and the native integer is unchanged. The carried snapshot is rebound to the new
+run and the next forced live response replaces it. Arbitrary cross-run reuse,
+negative age, and native integer mismatches remain invalid.
 
 ### Compatibility And Failure Behavior
 
@@ -98,7 +111,10 @@ Unit tests must cover:
 - start-state run changes do not cause a precise-to-integer transition when the
   integer still matches;
 - native integer mismatches remain rejected;
-- notifications are forced only for enabled, fully installed scope 1/31 chains;
+- notifications are forced only for enabled, fully installed dedicated or
+  branch-appropriate global contributor chains;
+- a proved migration completion can participate as exactly `100.000%` while
+  unrepresented non-completion branches remain rejected;
 - both displays always format real values with three digits and HALF_UP rounding.
 
 On-device validation must restart only the AICR UI/search processes, enter both

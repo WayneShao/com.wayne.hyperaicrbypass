@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
+import com.wayne.hyperaicrbypass.config.ProgressPrecision;
+
 public final class PreciseProgressDisplayTest {
     @Test
     public void roundsHalfUpToExactlyThreeFractionalDigits() {
@@ -11,6 +13,18 @@ public final class PreciseProgressDisplayTest {
                 snapshot(7_025_449L, 10_000_000L, 70, 0L)));
         assertEquals("70.255%", PreciseProgressDisplay.format(
                 snapshot(7_025_450L, 10_000_000L, 70, 0L)));
+    }
+
+    @Test
+    public void formatsOneTwoOrThreeFractionalDigitsWithHalfUpRounding() {
+        PreciseProgressSnapshot value = snapshot(7_085_150L, 10_000_000L, 70, 0L);
+
+        assertEquals("70.9%", PreciseProgressDisplay.format(
+                value, ProgressPrecision.TENTHS));
+        assertEquals("70.85%", PreciseProgressDisplay.format(
+                value, ProgressPrecision.HUNDREDTHS));
+        assertEquals("70.852%", PreciseProgressDisplay.format(
+                value, ProgressPrecision.THOUSANDTHS));
     }
 
     @Test
@@ -49,10 +63,22 @@ public final class PreciseProgressDisplayTest {
                 "Done 70%", "com.example.other", 70, snapshot, 2_000L));
         assertEquals("Done 70%", PreciseProgressDisplay.render(
                 "Done 70%", "com.miui.gallery", 69, snapshot, 2_000L));
-        assertEquals("Done 70%", PreciseProgressDisplay.render(
+        assertEquals("Done 70.254%", PreciseProgressDisplay.render(
                 "Done 70%", "com.miui.gallery", 70, snapshot, 361_001L));
         assertEquals("Done 70%", PreciseProgressDisplay.render(
                 "Done 70%", "com.miui.gallery", 70, null, 2_000L));
+    }
+
+    @Test
+    public void originalPrecisionLeavesNativeTextUntouched() {
+        assertEquals("Done 70%", PreciseProgressDisplay.render(
+                "Done 70%",
+                "com.miui.gallery",
+                70,
+                snapshot(7_085_150L, 10_000_000L, 70, 1_000L),
+                2_000L,
+                ProgressPrecision.ORIGINAL
+        ));
     }
 
     private static PreciseProgressSnapshot snapshot(

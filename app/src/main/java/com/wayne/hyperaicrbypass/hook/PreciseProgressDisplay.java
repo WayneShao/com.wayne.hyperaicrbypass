@@ -1,5 +1,7 @@
 package com.wayne.hyperaicrbypass.hook;
 
+import com.wayne.hyperaicrbypass.config.ProgressPrecision;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Objects;
@@ -17,19 +19,28 @@ public final class PreciseProgressDisplay {
     }
 
     public static String format(PreciseProgressSnapshot snapshot) {
+        return format(snapshot, ProgressPrecision.THOUSANDTHS);
+    }
+
+    public static String format(
+            PreciseProgressSnapshot snapshot,
+            ProgressPrecision precision
+    ) {
         Objects.requireNonNull(snapshot);
+        Objects.requireNonNull(precision);
+        int scale = precision.scale();
         if (snapshot.isDenominatorlessCompletion()) {
-            return "100.000%";
+            return BigDecimal.valueOf(100L).setScale(scale).toPlainString() + "%";
         }
         BigDecimal percentage = BigDecimal.valueOf(snapshot.numerator())
                 .multiply(BigDecimal.valueOf(100L))
-                .divide(BigDecimal.valueOf(snapshot.denominator()), 3, RoundingMode.HALF_UP);
+                .divide(BigDecimal.valueOf(snapshot.denominator()), scale, RoundingMode.HALF_UP);
         if (percentage.compareTo(ZERO) < 0) {
             percentage = ZERO;
         } else if (percentage.compareTo(HUNDRED) > 0) {
             percentage = HUNDRED;
         }
-        return percentage.setScale(3, RoundingMode.HALF_UP).toPlainString() + "%";
+        return percentage.setScale(scale, RoundingMode.HALF_UP).toPlainString() + "%";
     }
 
     public static String replaceFirstPercentage(String original, String replacement) {
@@ -51,12 +62,26 @@ public final class PreciseProgressDisplay {
             PreciseProgressSnapshot snapshot,
             long nowElapsedRealtime
     ) {
+        return render(original, scopePackage, uiProgress, snapshot, nowElapsedRealtime,
+                ProgressPrecision.THOUSANDTHS);
+    }
+
+    public static CharSequence render(
+            CharSequence original,
+            String scopePackage,
+            int uiProgress,
+            PreciseProgressSnapshot snapshot,
+            long nowElapsedRealtime,
+            ProgressPrecision precision
+    ) {
         if (original == null
+                || precision == null
+                || !precision.isPrecise()
                 || !GALLERY_PACKAGE.equals(scopePackage)
                 || snapshot == null
-                || !snapshot.isCompatible(uiProgress, nowElapsedRealtime)) {
+                || !snapshot.isDisplayCompatible(uiProgress, nowElapsedRealtime)) {
             return original;
         }
-        return replaceFirstPercentage(original.toString(), format(snapshot));
+        return replaceFirstPercentage(original.toString(), format(snapshot, precision));
     }
 }

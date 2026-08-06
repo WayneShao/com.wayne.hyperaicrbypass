@@ -202,7 +202,7 @@ public final class AicrProviderTraceHooks {
                     extras.putBoolean("is_run_algo", false);
                     ModernXposed.log(TAG + ": power-save converted UI start to pause");
                 }
-                boolean preciseEnabled = configClient.shouldBypass(Policy.AI_UI_CAPABILITY);
+                boolean preciseEnabled = configClient.progressPrecision().isPrecise();
                 if (role == AicrProviderHookSpec.Role.UI
                         && extras != null
                         && preciseEnabled

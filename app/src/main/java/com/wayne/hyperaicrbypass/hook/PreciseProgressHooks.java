@@ -7,7 +7,6 @@ import android.widget.TextView;
 
 import com.wayne.hyperaicrbypass.adapt.SemanticQuerySpec;
 import com.wayne.hyperaicrbypass.config.ConfigClient;
-import com.wayne.hyperaicrbypass.config.Policy;
 
 import org.luckypray.dexkit.DexKitBridge;
 import org.luckypray.dexkit.query.FindMethod;
@@ -146,7 +145,7 @@ public final class PreciseProgressHooks {
                     return;
                 }
                 try {
-                    if (!configClient.snapshot().shouldBypass(Policy.AI_UI_CAPABILITY)) {
+                    if (!configClient.progressPrecision().isPrecise()) {
                         return;
                     }
                     forceUiNotification(param);
@@ -162,7 +161,7 @@ public final class PreciseProgressHooks {
                     return;
                 }
                 try {
-                    if (!configClient.snapshot().shouldBypass(Policy.AI_UI_CAPABILITY)) {
+                    if (!configClient.progressPrecision().isPrecise()) {
                         return;
                     }
                     switch (kind) {
@@ -185,10 +184,7 @@ public final class PreciseProgressHooks {
                 || !(param.args[0] instanceof Integer scope)
                 || !(param.args[1] instanceof Boolean forceUpdate)
                 || !PreciseProgressHookLogic.shouldForceUiNotification(
-                        notificationChainReady,
-                        scope,
-                        latest.get(),
-                        SystemClock.elapsedRealtime())) {
+                        notificationChainReady, scope)) {
             return;
         }
         param.args[1] = true;
@@ -250,12 +246,14 @@ public final class PreciseProgressHooks {
                 scopePackage,
                 progress.getAsInt(),
                 snapshot.get(),
-                SystemClock.elapsedRealtime()
+                SystemClock.elapsedRealtime(),
+                configClient.progressPrecision()
         );
         if (rendered != null && !rendered.toString().contentEquals(original)) {
             statusView.setText(rendered);
             ModernXposed.log(TAG + ": precise display="
-                    + PreciseProgressDisplay.format(snapshot.get()));
+                    + PreciseProgressDisplay.format(
+                            snapshot.get(), configClient.progressPrecision()));
         }
     }
 

@@ -55,8 +55,11 @@ public final class PreciseProgressSnapshotTest {
         assertTrue(snapshot.isCompatible(70, 1_000L));
         assertTrue(snapshot.isCompatible(70, 361_000L));
         assertFalse(snapshot.isCompatible(70, 361_001L));
+        assertTrue(snapshot.isDisplayCompatible(70, 361_001L));
         assertFalse(snapshot.isCompatible(69, 2_000L));
+        assertFalse(snapshot.isDisplayCompatible(69, 2_000L));
         assertFalse(snapshot.isCompatible(70, 999L));
+        assertFalse(snapshot.isDisplayCompatible(70, 999L));
     }
 
     @Test

@@ -70,4 +70,9 @@ public record PreciseProgressSnapshot(
         long age = nowElapsedRealtime - capturedElapsedRealtime;
         return fixedProgress == uiProgress && age >= 0L && age <= MAX_AGE_MILLIS;
     }
+
+    public boolean isDisplayCompatible(int uiProgress, long nowElapsedRealtime) {
+        return fixedProgress == uiProgress
+                && nowElapsedRealtime >= capturedElapsedRealtime;
+    }
 }

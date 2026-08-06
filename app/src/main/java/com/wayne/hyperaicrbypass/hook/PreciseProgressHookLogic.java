@@ -63,14 +63,8 @@ public final class PreciseProgressHookLogic {
 
     public static boolean shouldForceUiNotification(
             boolean chainReady,
-            int scope,
-            PreciseProgressSnapshot snapshot,
-            long nowElapsedRealtime
+            int scope
     ) {
-        return chainReady
-                && scope == 1
-                && snapshot != null
-                && snapshot.isCompatible(
-                        snapshot.fixedProgress(), nowElapsedRealtime);
+        return chainReady && scope == 1;
     }
 }

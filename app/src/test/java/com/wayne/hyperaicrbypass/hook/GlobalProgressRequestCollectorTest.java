@@ -83,6 +83,23 @@ public final class GlobalProgressRequestCollectorTest {
         assertEquals(65_000, snapshot.thousandthsPercent());
     }
 
+    @Test
+    public void representsProvedGalleryEarlyCompletionWithoutFakeIntegerPrecision() {
+        GlobalProgressRequestCollector collector = new GlobalProgressRequestCollector();
+        GlobalProgressRequestCollector.IndexToken request = collector.beginIndex(31, false);
+        captureLocals(collector);
+        GlobalProgressRequestCollector.GalleryToken gallery = collector.beginGallery();
+        collector.finishGallery(gallery, 100);
+        collector.markMigratedDirect();
+
+        GlobalProgressSnapshot snapshot = collector.finishIndex(
+                request, 68, 12_345L, 9_000L
+        ).orElseThrow();
+
+        assertEquals(68_333, snapshot.thousandthsPercent());
+        assertEquals(68, snapshot.fixedProgress());
+    }
+
     private static void captureLocal(
             GlobalProgressRequestCollector collector,
             int scope,

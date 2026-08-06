@@ -131,6 +131,9 @@ public final class GlobalProgressRequestCollector {
         } else if (frame.candidate != null
                 && frame.candidate.fixedProgress() == fixed) {
             request.gallery = frame.candidate;
+        } else if (fixed == 100) {
+            request.gallery = GlobalProgressComponent.restore(0L, 0L, 100)
+                    .orElse(null);
         }
     }
 

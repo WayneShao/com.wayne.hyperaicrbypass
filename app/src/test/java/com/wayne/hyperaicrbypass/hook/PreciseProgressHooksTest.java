@@ -85,28 +85,15 @@ public final class PreciseProgressHooksTest {
     }
 
     @Test
-    public void forcesExistingNotificationOnlyForGalleryWithAPreciseSnapshot() {
-        PreciseProgressSnapshot payload = PreciseProgressSnapshot.restore(
-                418_714L, 595_999L, 70, 2_000L
-        ).orElseThrow();
-
+    public void forcesExistingNotificationForReadyGalleryChainWithoutPriorSnapshot() {
         assertTrue(PreciseProgressHookLogic.shouldForceUiNotification(
-                true, 1, payload, 362_000L
+                true, 1
         ));
         assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(
-                false, 1, payload, 2_001L
+                false, 1
         ));
         assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(
-                true, 2, payload, 2_001L
-        ));
-        assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(
-                true, 1, null, 2_001L
-        ));
-        assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(
-                true, 1, payload, 362_001L
-        ));
-        assertFalse(PreciseProgressHookLogic.shouldForceUiNotification(
-                true, 1, payload, 1_999L
+                true, 2
         ));
     }
 }
