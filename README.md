@@ -62,14 +62,12 @@
 | Android | 16 |
 | HyperOS | `OS3.0.307.6.WPACNXM` |
 | 进程 ABI | `arm64-v8a` |
-| AICR | `3.63.0`（versionCode `2030036300`，实机 Hook 覆盖 11/11、精细进度 12/12、浏览器入口 2/2） |
+| AICR | `3.63.0`（实机 11/11、12/12、2/2）；`4.0.6`（实机 11/11、15/15、1/1） |
 | 小米相册 | `5.0.7.7-0720-R`（versionCode `5000707`） |
 | AI Service | `3.12.2_dd2be79_260427_cn`（versionCode `312002`） |
 | LSPosed / Vector | `2.1.1`，libxposed API `102` |
 
-模块应用最低支持 Android 9（API 28），框架必须支持 modern libxposed API 102。实际 Hook 兼容性仍取决于设备 ROM、相册、AICR 和 AI Service 的具体实现。
-
-AICR `4.0.6`（versionCode `2030040006`）已完成 APK 反编译签名映射和自动化目录测试；本次发布前的最终实机回归使用上表中的 `3.63.0`。
+模块应用最低支持 Android 9（API 28），框架必须支持 modern libxposed API 102。AICR `3.63.0`（versionCode `2030036300`）和 `4.0.6`（versionCode `2030040006`）均已完成实机注入与状态页回归；实际 Hook 兼容性仍取决于设备 ROM、相册、AICR 和 AI Service 的具体实现。
 
 ## 安装与作用域
 
