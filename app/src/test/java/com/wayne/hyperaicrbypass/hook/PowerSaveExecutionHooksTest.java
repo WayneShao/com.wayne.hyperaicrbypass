@@ -56,6 +56,17 @@ public class PowerSaveExecutionHooksTest {
                 .noneMatch(spec -> forbidden.contains(spec.preferredMethodName())));
     }
 
+    @Test
+    public void semanticStaticShapeMustMatchBranchSpecExactly() {
+        PowerSaveHookSpec v3Static = PowerSaveHookSpec.catalog(AicrVersionBranch.V3).get(0);
+        PowerSaveHookSpec v4Instance = PowerSaveHookSpec.catalog(AicrVersionBranch.V4).get(0);
+
+        assertTrue(PowerSaveExecutionHooks.matchesStaticShape(v3Static, true));
+        assertFalse(PowerSaveExecutionHooks.matchesStaticShape(v3Static, false));
+        assertTrue(PowerSaveExecutionHooks.matchesStaticShape(v4Instance, false));
+        assertFalse(PowerSaveExecutionHooks.matchesStaticShape(v4Instance, true));
+    }
+
     private static PowerSaveHookSpec spec(String methodName) {
         return PowerSaveHookSpec.catalog().stream()
                 .filter(spec -> spec.methodName().equals(methodName))

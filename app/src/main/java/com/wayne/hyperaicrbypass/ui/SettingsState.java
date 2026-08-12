@@ -6,6 +6,7 @@ import com.wayne.hyperaicrbypass.config.Policy;
 import com.wayne.hyperaicrbypass.config.OperatingMode;
 import com.wayne.hyperaicrbypass.config.ProgressPrecision;
 import com.wayne.hyperaicrbypass.hook.ExecutionCoverage;
+import com.wayne.hyperaicrbypass.hook.PreciseProgressCoverage;
 
 import java.util.Map;
 import java.util.Objects;
@@ -16,13 +17,17 @@ public final class SettingsState {
     private final Map<Policy, CoverageLayer> coverage;
     private final ExecutionCoverage executionCoverage;
     private final boolean externalPowerConnected;
+    private final PreciseProgressCoverage preciseProgressCoverage;
+    private final int preciseProgressCount;
+    private final int preciseProgressExpected;
 
     public SettingsState(
             BypassConfig config,
             String aicrVersion,
             Map<Policy, CoverageLayer> coverage
     ) {
-        this(config, aicrVersion, coverage, ExecutionCoverage.PENDING, false);
+        this(config, aicrVersion, coverage, ExecutionCoverage.PENDING, false,
+                PreciseProgressCoverage.PENDING, 0);
     }
 
     public SettingsState(
@@ -32,11 +37,41 @@ public final class SettingsState {
             ExecutionCoverage executionCoverage,
             boolean externalPowerConnected
     ) {
+        this(config, aicrVersion, coverage, executionCoverage, externalPowerConnected,
+                PreciseProgressCoverage.PENDING, 0);
+    }
+
+    public SettingsState(
+            BypassConfig config,
+            String aicrVersion,
+            Map<Policy, CoverageLayer> coverage,
+            ExecutionCoverage executionCoverage,
+            boolean externalPowerConnected,
+            PreciseProgressCoverage preciseProgressCoverage,
+            int preciseProgressCount
+    ) {
+        this(config, aicrVersion, coverage, executionCoverage, externalPowerConnected,
+                preciseProgressCoverage, preciseProgressCount, 4);
+    }
+
+    public SettingsState(
+            BypassConfig config,
+            String aicrVersion,
+            Map<Policy, CoverageLayer> coverage,
+            ExecutionCoverage executionCoverage,
+            boolean externalPowerConnected,
+            PreciseProgressCoverage preciseProgressCoverage,
+            int preciseProgressCount,
+            int preciseProgressExpected
+    ) {
         this.config = Objects.requireNonNull(config);
         this.aicrVersion = Objects.requireNonNull(aicrVersion);
         this.coverage = Map.copyOf(coverage);
         this.executionCoverage = Objects.requireNonNull(executionCoverage);
         this.externalPowerConnected = externalPowerConnected;
+        this.preciseProgressCoverage = Objects.requireNonNull(preciseProgressCoverage);
+        this.preciseProgressCount = preciseProgressCount;
+        this.preciseProgressExpected = preciseProgressExpected;
     }
 
     public boolean isMasterEnabled() {
@@ -68,7 +103,32 @@ public final class SettingsState {
     }
 
     public boolean isPrecisionSelectorEnabled() {
-        return isPreciseProgressEnabled();
+        return isPreciseProgressEnabled() && isPreciseProgressToggleEnabled();
+    }
+
+    public boolean isPreciseProgressToggleEnabled() {
+        return isPreciseProgressEnabled()
+                || preciseProgressCoverage == PreciseProgressCoverage.AVAILABLE;
+    }
+
+    public String preciseProgressStatus() {
+        return switch (preciseProgressCoverage) {
+            case PENDING -> "等待 AICR 进程上报";
+            case AVAILABLE -> "可用 · 动态适配 " + preciseProgressCount + " / "
+                    + preciseProgressExpected;
+            case PARTIAL -> "部分可用 · " + preciseProgressCount + " / "
+                    + preciseProgressExpected;
+            case UNAVAILABLE -> "不可用 · 当前版本未适配";
+        };
+    }
+
+    public CoverageLayer preciseProgressLayer() {
+        return switch (preciseProgressCoverage) {
+            case PENDING -> CoverageLayer.PENDING;
+            case AVAILABLE -> CoverageLayer.SEMANTIC;
+            case PARTIAL -> CoverageLayer.PARTIAL;
+            case UNAVAILABLE -> CoverageLayer.UNAVAILABLE;
+        };
     }
 
     public ProgressPrecision selectedPrecision() {
@@ -105,9 +165,10 @@ public final class SettingsState {
     }
 
     public boolean isPolicyEditable(Policy policy) {
-        CoverageLayer layer = coverage.get(policy);
-        boolean unavailable = layer == CoverageLayer.UNAVAILABLE;
-        return !config.isSelectAllMode() && !unavailable;
+        CoverageLayer layer = coverage.getOrDefault(policy, CoverageLayer.PENDING);
+        boolean available = layer != CoverageLayer.PENDING
+                && layer != CoverageLayer.UNAVAILABLE;
+        return !config.isSelectAllMode() && (available || config.isSelected(policy));
     }
 
     public boolean areAllPoliciesSelected() {
@@ -123,18 +184,27 @@ public final class SettingsState {
     }
 
     public String rescanSummary() {
-        return "Rescan " + config.getRescanGeneration();
+        long available = coverage.values().stream()
+                .filter(layer -> layer != CoverageLayer.PENDING
+                        && layer != CoverageLayer.UNAVAILABLE)
+                .count();
+        return "已适配 " + available + " / " + Policy.values().length
+                + " · 扫描 " + config.getRescanGeneration();
     }
 
     public String coverageLabel(Policy policy) {
         CoverageLayer layer = coverage.getOrDefault(policy, CoverageLayer.PENDING);
         return switch (layer) {
-            case PENDING -> "Pending";
-            case EXACT -> "Exact";
-            case SEMANTIC -> "Adapted";
-            case FALLBACK -> "Fallback";
-            case PARTIAL -> "Partial";
-            case UNAVAILABLE -> "Unavailable";
+            case PENDING -> "等待 AICR 进程上报";
+            case EXACT -> "可用 · 精确适配";
+            case SEMANTIC -> "可用 · 动态适配";
+            case FALLBACK -> "可用 · 兼容回退";
+            case PARTIAL -> "部分可用";
+            case UNAVAILABLE -> "不可用 · 当前版本未适配";
         };
+    }
+
+    public CoverageLayer coverageLayer(Policy policy) {
+        return coverage.getOrDefault(policy, CoverageLayer.PENDING);
     }
 }

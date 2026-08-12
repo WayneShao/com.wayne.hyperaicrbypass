@@ -9,6 +9,7 @@ import com.wayne.hyperaicrbypass.config.ConfigClient;
 import com.wayne.hyperaicrbypass.config.Policy;
 
 import org.luckypray.dexkit.DexKitBridge;
+import com.wayne.hyperaicrbypass.adapt.DexKitBridgeFactory;
 import org.luckypray.dexkit.query.FindMethod;
 import org.luckypray.dexkit.query.matchers.MethodMatcher;
 import org.luckypray.dexkit.result.MethodData;
@@ -75,9 +76,7 @@ public final class AicrProviderTraceHooks {
             }
         }
         if (!missing.isEmpty()) {
-            try (DexKitBridge bridge = DexKitBridge.create(
-                    context.getApplicationInfo().sourceDir
-            )) {
+            try (DexKitBridge bridge = DexKitBridgeFactory.create(context)) {
                 for (AicrProviderHookSpec spec : missing) {
                     if (installSemantic(bridge, spec)) {
                         covered.put(spec.role(), true);
@@ -131,7 +130,7 @@ public final class AicrProviderTraceHooks {
                     .paramTypes(spec.parameterTypes())
                     .usingStrings(spec.requiredAnchors());
             List<MethodData> candidates = new ArrayList<>(bridge.findMethod(
-                    FindMethod.create().searchPackages("com.xiaomi.aicr").matcher(matcher)
+                    FindMethod.create().matcher(matcher)
             ));
             candidates = candidates.stream()
                     .filter(candidate -> !Modifier.isStatic(candidate.getModifiers()))

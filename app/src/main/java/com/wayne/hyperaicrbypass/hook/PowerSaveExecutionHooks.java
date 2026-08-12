@@ -3,6 +3,7 @@ package com.wayne.hyperaicrbypass.hook;
 import android.content.Context;
 
 import com.wayne.hyperaicrbypass.config.ConfigClient;
+import com.wayne.hyperaicrbypass.adapt.DexKitBridgeFactory;
 import com.wayne.hyperaicrbypass.xposed.ModernHook;
 import com.wayne.hyperaicrbypass.xposed.ModernXposed;
 import com.wayne.hyperaicrbypass.xposed.ReflectionHelpers;
@@ -35,23 +36,22 @@ public final class PowerSaveExecutionHooks {
     }
 
     public synchronized InstallResult install() {
+        AicrVersionBranch branch = AicrPackageVersion.branch(context);
         Set<String> covered = new HashSet<>();
         List<PowerSaveHookSpec> missing = new ArrayList<>();
-        for (PowerSaveHookSpec spec : PowerSaveHookSpec.catalog()) {
+        for (PowerSaveHookSpec spec : PowerSaveHookSpec.catalog(branch)) {
             if (installExact(spec)) {
-                covered.add(spec.methodName());
+                covered.add(spec.boundary().name());
             } else {
                 missing.add(spec);
             }
         }
 
         if (!missing.isEmpty()) {
-            try (DexKitBridge bridge = DexKitBridge.create(
-                    context.getApplicationInfo().sourceDir
-            )) {
+            try (DexKitBridge bridge = DexKitBridgeFactory.create(context)) {
                 for (PowerSaveHookSpec spec : missing) {
                     if (installSemantic(bridge, spec)) {
-                        covered.add(spec.methodName());
+                        covered.add(spec.boundary().name());
                     }
                 }
             } catch (Throwable error) {
@@ -60,8 +60,8 @@ public final class PowerSaveExecutionHooks {
         }
 
         InstallResult result = new InstallResult(
-                covered.contains("checkCanStart"),
-                covered.contains("getNeedStop")
+                covered.contains(PowerSaveHookSpec.Boundary.START.name()),
+                covered.contains(PowerSaveHookSpec.Boundary.STOP.name())
         );
         ModernXposed.log(TAG + ": power-save execution hooks="
                 + result.installedCount() + "/2");
@@ -72,6 +72,14 @@ public final class PowerSaveExecutionHooks {
         return shouldPause ? spec.pauseResult() : original;
     }
 
+    static boolean matchesStaticShape(PowerSaveHookSpec spec, boolean isStatic) {
+        return spec.allowStatic() == isStatic;
+    }
+
+    private static AicrVersionBranch branchFor(PowerSaveHookSpec spec) {
+        return spec.className().contains(".") ? AicrVersionBranch.V4 : AicrVersionBranch.V3;
+    }
+
     private boolean installExact(PowerSaveHookSpec spec) {
         try {
             Class<?> owner = ReflectionHelpers.findClass(spec.className(), classLoader);
@@ -79,7 +87,7 @@ public final class PowerSaveExecutionHooks {
                     spec.methodName(), resolveTypes(spec.parameterTypes())
             );
             if (method.getReturnType() != boolean.class
-                    || Modifier.isStatic(method.getModifiers())) {
+                    || !matchesStaticShape(spec, Modifier.isStatic(method.getModifiers()))) {
                 return false;
             }
             return installMethod(method, spec, "exact");
@@ -98,12 +106,13 @@ public final class PowerSaveExecutionHooks {
                     .usingStrings(spec.requiredAnchors());
             List<MethodData> candidates = new ArrayList<>(bridge.findMethod(
                     FindMethod.create()
-                            .searchPackages("com.xiaomi.aicr")
                             .matcher(matcher)
             ));
-            candidates = candidates.stream()
-                    .filter(candidate -> !Modifier.isStatic(candidate.getModifiers()))
-                    .collect(Collectors.toList());
+            candidates.removeIf(candidate ->
+                    !SemanticHooks.isExpectedOwner(branchFor(spec), candidate.getClassName())
+                            || !matchesStaticShape(
+                            spec, Modifier.isStatic(candidate.getModifiers())
+                    ));
             MethodData selected = selectUnambiguous(spec, candidates);
             if (selected == null) {
                 ModernXposed.log(TAG + ": power-save semantic ambiguous "
@@ -113,7 +122,7 @@ public final class PowerSaveExecutionHooks {
             Method method = selected.getMethodInstance(classLoader);
             if (method.getReturnType() != boolean.class
                     || !parameterNames(method).equals(spec.parameterTypes())
-                    || Modifier.isStatic(method.getModifiers())) {
+                    || !matchesStaticShape(spec, Modifier.isStatic(method.getModifiers()))) {
                 return false;
             }
             return installMethod(method, spec, "semantic");

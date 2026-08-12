@@ -12,7 +12,7 @@ public final class ExactHookCatalog {
     private static final String STATUS_BEAN =
             "com.xiaomi.aicr.searchpro.monitor.StatusBean";
 
-    private static final List<HookSpec> AICR_SPECS = List.of(
+    private static final List<HookSpec> AICR_4_SPECS = List.of(
             spec(RUNNING_STATUS, "getTemperature", "int", Policy.TEMPERATURE,
                     HookBehavior.RESULT_ZERO_INT),
             spec(RUNNING_STATUS, "checkOverStartTemperatureLimit", "boolean",
@@ -40,22 +40,63 @@ public final class ExactHookCatalog {
                     HookBehavior.RESULT_FALSE),
             spec("com.xiaomi.aicr.common.StatusUtils", "isSupportAISearchUIV2",
                     "boolean", Policy.AI_UI_CAPABILITY, HookBehavior.RESULT_TRUE),
-            spec("android.app.job.JobInfo$Builder", "setRequiresCharging",
-                    "android.app.job.JobInfo$Builder", List.of("boolean"),
-                    Policy.TASK_CONSTRAINTS, HookBehavior.ARGUMENT_ZERO_BOOLEAN),
-            spec("android.app.job.JobInfo$Builder", "setRequiresBatteryNotLow",
-                    "android.app.job.JobInfo$Builder", List.of("boolean"),
-                    Policy.TASK_CONSTRAINTS, HookBehavior.ARGUMENT_ZERO_BOOLEAN),
-            spec("android.app.job.JobInfo$Builder", "setRequiresDeviceIdle",
-                    "android.app.job.JobInfo$Builder", List.of("boolean"),
-                    Policy.TASK_CONSTRAINTS, HookBehavior.ARGUMENT_ZERO_BOOLEAN)
+            taskSpec("setRequiresCharging"),
+            taskSpec("setRequiresBatteryNotLow"),
+            taskSpec("setRequiresDeviceIdle")
     );
+
+    private static final List<HookSpec> AICR_3_63_SPECS = List.of(
+            spec("u16", "C", "int", Policy.TEMPERATURE,
+                    HookBehavior.RESULT_ZERO_INT),
+            spec("u16", "e", "boolean", List.of("int"),
+                    Policy.TEMPERATURE, HookBehavior.RESULT_FALSE),
+            spec("u16", "g", "int", Policy.CHARGING,
+                    HookBehavior.RESULT_ONE_INT),
+            spec("u16", "s", "int", Policy.POWER,
+                    HookBehavior.RESULT_HUNDRED_INT),
+            spec("u16", "l", "int", Policy.SCREEN_IDLE,
+                    HookBehavior.RESULT_ZERO_INT),
+            spec("u16", "j", "int", Policy.MIGRATION,
+                    HookBehavior.RESULT_ZERO_INT),
+            spec("u16", "i", "int", Policy.DAILY_COUNT,
+                    HookBehavior.RESULT_ZERO_INT),
+            spec("nt6", "b", "boolean", List.of("long"),
+                    Policy.DURATION, HookBehavior.ARGUMENT_NOW_LONG),
+            spec("u16", "v", "long", Policy.RUN_GAP,
+                    HookBehavior.RESULT_ZERO_LONG),
+            spec("c15", "a", "boolean", List.of("android.content.Context"),
+                    Policy.OVERLOAD, HookBehavior.RESULT_FALSE),
+            spec("pt6", "i", "boolean", Policy.AI_UI_CAPABILITY,
+                    HookBehavior.RESULT_TRUE),
+            taskSpec("setRequiresCharging"),
+            taskSpec("setRequiresBatteryNotLow"),
+            taskSpec("setRequiresDeviceIdle")
+    );
+    private static final List<HookSpec> FRAMEWORK_SPECS = List.of(
+            taskSpec("setRequiresCharging"),
+            taskSpec("setRequiresBatteryNotLow"),
+            taskSpec("setRequiresDeviceIdle")
+    );
+
+    private static HookSpec taskSpec(String methodName) {
+        return spec("android.app.job.JobInfo$Builder", methodName,
+                "android.app.job.JobInfo$Builder", List.of("boolean"),
+                Policy.TASK_CONSTRAINTS, HookBehavior.ARGUMENT_ZERO_BOOLEAN);
+    }
 
     private ExactHookCatalog() {
     }
 
     public static List<HookSpec> aicrSpecs() {
-        return AICR_SPECS;
+        return AICR_4_SPECS;
+    }
+
+    public static List<HookSpec> aicrSpecs(AicrVersionBranch branch) {
+        return switch (branch) {
+            case V3 -> AICR_3_63_SPECS;
+            case V4 -> AICR_4_SPECS;
+            case UNKNOWN -> FRAMEWORK_SPECS;
+        };
     }
 
     private static HookSpec spec(

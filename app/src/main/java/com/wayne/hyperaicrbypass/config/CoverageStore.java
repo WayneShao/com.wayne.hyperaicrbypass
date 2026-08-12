@@ -6,6 +6,8 @@ import android.content.SharedPreferences;
 import com.wayne.hyperaicrbypass.adapt.CoverageLayer;
 import com.wayne.hyperaicrbypass.adapt.DiscoveryKey;
 import com.wayne.hyperaicrbypass.hook.ExecutionCoverage;
+import com.wayne.hyperaicrbypass.hook.PreciseProgressCoverage;
+import com.wayne.hyperaicrbypass.hook.BrowserHookCoverage;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -19,17 +21,38 @@ final class CoverageStore {
         preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
     }
 
-    synchronized void report(Policy policy, CoverageLayer layer, long generation) {
+    synchronized void report(
+            Policy policy,
+            CoverageLayer layer,
+            long generation,
+            String discoveryKey
+    ) {
         String generationKey = ConfigContract.coverageKey(policy) + ".generation";
-        if (generation < preferences.getLong(generationKey, -1L)) {
+        String keyKey = ConfigContract.coverageKey(policy) + ".discovery_key";
+        DiscoveryKey current = DiscoveryKey.parse(preferences.getString(keyKey, null));
+        DiscoveryKey incoming = DiscoveryKey.parse(discoveryKey);
+        if (incoming == null || (current != null && !acceptPolicyKey(current, incoming))) {
             return;
         }
         if (!preferences.edit()
                 .putString(ConfigContract.coverageKey(policy), layer.name())
                 .putLong(generationKey, generation)
+                .putString(keyKey, discoveryKey)
                 .commit()) {
             throw new IllegalStateException("Unable to persist coverage status");
         }
+    }
+
+    private static boolean acceptPolicyKey(DiscoveryKey current, DiscoveryKey incoming) {
+        if (current.equals(incoming)) {
+            return true;
+        }
+        if (current.versionCode() == incoming.versionCode()
+                && current.lastUpdateTime() == incoming.lastUpdateTime()
+                && current.schemaRevision() == incoming.schemaRevision()) {
+            return incoming.rescanGeneration() > current.rescanGeneration();
+        }
+        return incoming.lastUpdateTime() > current.lastUpdateTime();
     }
 
     synchronized Map<Policy, CoverageLayer> read() {
@@ -46,6 +69,12 @@ final class CoverageStore {
             }
         }
         return result;
+    }
+
+    synchronized String readPolicyDiscoveryKey(Policy policy) {
+        return preferences.getString(
+                ConfigContract.coverageKey(policy) + ".discovery_key", ""
+        );
     }
 
     synchronized void reportExecution(DiscoveryKey key, ExecutionCoverage coverage) {
@@ -92,6 +121,118 @@ final class CoverageStore {
         return new ExecutionRecord(key, coverage);
     }
 
+    synchronized void reportPreciseProgress(
+            String discoveryKey,
+            PreciseProgressCoverage coverage,
+            int count,
+            int expected
+    ) {
+        PreciseProgressRecord currentRecord = readPreciseProgress();
+        if (!PreciseProgressCoverage.shouldAccept(
+                DiscoveryKey.parse(currentRecord.discoveryKey()),
+                currentRecord.coverage(),
+                currentRecord.installedCount(),
+                DiscoveryKey.parse(discoveryKey),
+                coverage,
+                count
+        )) {
+            return;
+        }
+        if (!preferences.edit()
+                .putString(ConfigContract.KEY_PRECISE_PROGRESS_DISCOVERY_KEY, discoveryKey)
+                .putString(ConfigContract.KEY_PRECISE_PROGRESS_COVERAGE, coverage.name())
+                .putInt(ConfigContract.KEY_PRECISE_PROGRESS_COUNT, count)
+                .putInt(ConfigContract.KEY_PRECISE_PROGRESS_EXPECTED, expected)
+                .commit()) {
+            throw new IllegalStateException("Unable to persist precise progress coverage");
+        }
+    }
+
+    synchronized PreciseProgressRecord readPreciseProgress() {
+        PreciseProgressCoverage coverage;
+        try {
+            coverage = PreciseProgressCoverage.valueOf(preferences.getString(
+                    ConfigContract.KEY_PRECISE_PROGRESS_COVERAGE,
+                    PreciseProgressCoverage.PENDING.name()
+            ));
+        } catch (IllegalArgumentException ignored) {
+            coverage = PreciseProgressCoverage.PENDING;
+        }
+        return new PreciseProgressRecord(
+                preferences.getString(
+                        ConfigContract.KEY_PRECISE_PROGRESS_DISCOVERY_KEY, ""
+                ),
+                coverage,
+                preferences.getInt(ConfigContract.KEY_PRECISE_PROGRESS_COUNT, 0),
+                preferences.getInt(ConfigContract.KEY_PRECISE_PROGRESS_EXPECTED, 0)
+        );
+    }
+
+    synchronized void reportBrowser(
+            String discoveryKey,
+            BrowserHookCoverage coverage,
+            int count,
+            int expected
+    ) {
+        BrowserRecord current = readBrowser();
+        if (!PreciseProgressCoverage.shouldAccept(
+                DiscoveryKey.parse(current.discoveryKey()),
+                toPrecise(current.coverage()),
+                current.installedCount(),
+                DiscoveryKey.parse(discoveryKey),
+                toPrecise(coverage),
+                count
+        )) {
+            return;
+        }
+        if (!preferences.edit()
+                .putString(ConfigContract.KEY_BROWSER_DISCOVERY_KEY, discoveryKey)
+                .putString(ConfigContract.KEY_BROWSER_COVERAGE, coverage.name())
+                .putInt(ConfigContract.KEY_BROWSER_HOOK_COUNT, count)
+                .putInt(ConfigContract.KEY_BROWSER_HOOK_EXPECTED, expected)
+                .commit()) {
+            throw new IllegalStateException("Unable to persist browser coverage");
+        }
+    }
+
+    synchronized BrowserRecord readBrowser() {
+        BrowserHookCoverage coverage;
+        try {
+            coverage = BrowserHookCoverage.valueOf(preferences.getString(
+                    ConfigContract.KEY_BROWSER_COVERAGE,
+                    BrowserHookCoverage.PENDING.name()
+            ));
+        } catch (IllegalArgumentException ignored) {
+            coverage = BrowserHookCoverage.PENDING;
+        }
+        return new BrowserRecord(
+                preferences.getString(ConfigContract.KEY_BROWSER_DISCOVERY_KEY, ""),
+                coverage,
+                preferences.getInt(ConfigContract.KEY_BROWSER_HOOK_COUNT, 0),
+                preferences.getInt(ConfigContract.KEY_BROWSER_HOOK_EXPECTED, 0)
+        );
+    }
+
+    private static PreciseProgressCoverage toPrecise(BrowserHookCoverage coverage) {
+        return PreciseProgressCoverage.valueOf(coverage.name());
+    }
+
     record ExecutionRecord(DiscoveryKey key, ExecutionCoverage coverage) {
+    }
+
+    record PreciseProgressRecord(
+            String discoveryKey,
+            PreciseProgressCoverage coverage,
+            int installedCount,
+            int expectedCount
+    ) {
+    }
+
+    record BrowserRecord(
+            String discoveryKey,
+            BrowserHookCoverage coverage,
+            int installedCount,
+            int expectedCount
+    ) {
     }
 }

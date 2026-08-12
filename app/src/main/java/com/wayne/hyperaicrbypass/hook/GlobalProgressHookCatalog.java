@@ -18,61 +18,99 @@ public final class GlobalProgressHookCatalog {
             new Point(
                     "index", PROGRESS_MONITOR, "getIndexProgress",
                     "android.os.Bundle", List.of("int", "boolean", FUNCTION3),
+                    false,
                     List.of("analyse_progress", "analyse_status")
             ),
             new Point(
                     "migrated", PROGRESS_MONITOR, "getMigratedProgress",
                     "int", List.of("int", "boolean", FUNCTION3),
+                    false,
                     List.of("enter getMigratedProgress")
             ),
             new Point(
                     "unmigrated", PROGRESS_MONITOR, "getUnMigratedProgress",
                     "int", List.of("int", "boolean", FUNCTION3),
+                    false,
                     List.of("enter getUnMigratedProgress")
             ),
             new Point(
                     "local-scope", PROGRESS_MONITOR, "calculateScopeProgress",
                     "int", List.of("int", "boolean", "boolean", "boolean"),
+                    false,
                     List.of("scope 31 progress calculate begin")
             ),
             new Point(
                     "local-calculator", PROGRESS_MONITOR, "calculateProgress",
                     "float", List.of("int", "int", "int"),
+                    false,
                     List.of("oriCount = ", ", invertedCount = ")
             ),
             new Point(
                     "gallery-boundary", GALLERY_MONITOR, "getGalleryProgress",
                     "int", List.of("boolean", FUNCTION3),
+                    false,
                     List.of("getGalleryProgress progress:")
             ),
             new Point(
                     "gallery-calculator", GALLERY_MONITOR, "calculateProgress",
                     "int", List.of("int", "int", "int", "int", "int", "int",
                             "int", "int"),
+                    false,
                     List.of("total:0, return 100", "progress = ")
             ),
             new Point(
                     "gallery-postprocess", GALLERY_MONITOR,
                     "calculateProgressOnMigrate", "int",
                     List.of("float", "int", "int", "int", "int"),
+                    false,
                     List.of("mediaCountCurr:", "  return 100")
             ),
             new Point(
                     "notification", RUNNING_STATUS, "sendProgressToActivity", "void",
                     List.of("int", "boolean"),
+                    false,
                     List.of("enter sendProgressToActivity scopes")
             ),
             new Point(
                     "outgoing-bridge", PROGRESS_MONITOR,
                     "updateScopeUIProgressInfo", "void",
-                    List.of("int", "android.os.Bundle"), List.of()
+                    List.of("int", "android.os.Bundle"), false, List.of()
             ),
             new Point(
                     "setting-display", SETTING_ACTIVITY,
                     "refreshAISearchStatus", "void",
                     List.of("android.os.Bundle"),
+                    false,
                     List.of("analyse_status", "analyse_progress", "download_paused")
             )
+    );
+
+    private static final List<Point> V3_POINTS = List.of(
+            new Point("index", "ok5", "g", "android.os.Bundle",
+                    List.of("int", "boolean", "oa6"), false,
+                    List.of("enter getMigratedProgress")),
+            new Point("local-scope", "ok5", "b", "int",
+                    List.of("int", "boolean", "boolean", "boolean"), false,
+                    List.of("scope 31 progress calculate begin")),
+            new Point("local-calculator", "ok5", "a", "float",
+                    List.of("int", "int", "int"), true,
+                    List.of("oriCount = ", ", invertedCount = ")),
+            new Point("gallery-boundary", "il2", "d", "int",
+                    List.of("boolean", FUNCTION3), true,
+                    List.of("getGalleryProgress progress:")),
+            new Point("gallery-calculator", "il2", "a", "int",
+                    List.of("int", "int", "int", "int", "int", "int"), true,
+                    List.of("total:0, return 100", "progress = ")),
+            new Point("notification", "u16", "H", "void",
+                    List.of("int", "boolean"), false,
+                    List.of("enter sendProgressToActivity scopes")),
+            new Point("outgoing-bridge", "ok5", "s", "void",
+                    List.of("int", "android.os.Bundle"), true, List.of()),
+            new Point("setting-display",
+                    "com.xiaomi.aicr.aisearch.AiSearchSettingActivity", "s", "void",
+                    List.of("com.xiaomi.aicr.aisearch.AiSearchSettingActivity",
+                            "android.os.Bundle"), true,
+                    List.of("analyse_status", "download_paused"))
     );
 
     private GlobalProgressHookCatalog() {
@@ -80,6 +118,10 @@ public final class GlobalProgressHookCatalog {
 
     public static List<Point> points() {
         return POINTS;
+    }
+
+    public static List<Point> points(AicrVersionBranch branch) {
+        return branch == AicrVersionBranch.V3 ? V3_POINTS : POINTS;
     }
 
     public static Set<String> requiredPointIds(GlobalProgressBranch branch) {
@@ -102,16 +144,32 @@ public final class GlobalProgressHookCatalog {
         };
     }
 
+    public static Set<String> requiredPointIds(
+            AicrVersionBranch version,
+            GlobalProgressBranch branch
+    ) {
+        if (version != AicrVersionBranch.V3) {
+            return requiredPointIds(branch);
+        }
+        return Set.of(
+                "index", "local-scope", "local-calculator", "gallery-boundary",
+                "gallery-calculator", "notification", "outgoing-bridge",
+                "setting-display"
+        );
+    }
+
     public record Point(
             String id,
             String className,
             String methodName,
             String returnType,
             List<String> parameterTypes,
+            boolean isStatic,
             List<String> requiredAnchors
     ) {
         public String packageName() {
-            return className.substring(0, className.lastIndexOf('.'));
+            int separator = className.lastIndexOf('.');
+            return separator < 0 ? "" : className.substring(0, separator);
         }
     }
 }

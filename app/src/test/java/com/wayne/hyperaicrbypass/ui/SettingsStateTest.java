@@ -10,6 +10,7 @@ import com.wayne.hyperaicrbypass.config.Policy;
 import com.wayne.hyperaicrbypass.config.OperatingMode;
 import com.wayne.hyperaicrbypass.config.ProgressPrecision;
 import com.wayne.hyperaicrbypass.hook.ExecutionCoverage;
+import com.wayne.hyperaicrbypass.hook.PreciseProgressCoverage;
 
 import org.junit.Test;
 
@@ -56,14 +57,29 @@ public class SettingsStateTest {
                 .nextRescanGeneration();
         SettingsState state = new SettingsState(generationFour, "4.0.6", reports);
 
-        assertEquals("Exact", state.coverageLabel(Policy.TEMPERATURE));
-        assertEquals("Adapted", state.coverageLabel(Policy.CHARGING));
-        assertEquals("Fallback", state.coverageLabel(Policy.POWER));
-        assertEquals("Unavailable", state.coverageLabel(Policy.SCREEN_IDLE));
-        assertFalse(state.isPolicyEditable(Policy.SCREEN_IDLE));
-        assertEquals("Partial", state.coverageLabel(Policy.MIGRATION));
+        assertEquals("可用 · 精确适配", state.coverageLabel(Policy.TEMPERATURE));
+        assertEquals("可用 · 动态适配", state.coverageLabel(Policy.CHARGING));
+        assertEquals("可用 · 兼容回退", state.coverageLabel(Policy.POWER));
+        assertEquals("不可用 · 当前版本未适配", state.coverageLabel(Policy.SCREEN_IDLE));
+        assertTrue(state.isPolicyEditable(Policy.SCREEN_IDLE));
+        assertEquals("部分可用", state.coverageLabel(Policy.MIGRATION));
         assertTrue(state.isPolicyEditable(Policy.MIGRATION));
-        assertEquals("Rescan 4", state.rescanSummary());
+        assertEquals("已适配 4 / 11 · 扫描 4", state.rescanSummary());
+        assertTrue(state.isPolicyEditable(Policy.DAILY_COUNT));
+        assertEquals("等待 AICR 进程上报", state.coverageLabel(Policy.DAILY_COUNT));
+    }
+
+    @Test
+    public void unavailableSelectedPolicyCanBeTurnedOffButCannotBeTurnedOn() {
+        BypassConfig selected = BypassConfig.defaults().withSelectAllMode(false);
+        SettingsState active = new SettingsState(
+                selected, "3.63.0", Map.of(Policy.TEMPERATURE, CoverageLayer.UNAVAILABLE));
+        assertTrue(active.isPolicyEditable(Policy.TEMPERATURE));
+
+        SettingsState inactive = new SettingsState(
+                selected.withPolicy(Policy.TEMPERATURE, false),
+                "3.63.0", Map.of(Policy.TEMPERATURE, CoverageLayer.UNAVAILABLE));
+        assertFalse(inactive.isPolicyEditable(Policy.TEMPERATURE));
     }
 
     @Test
@@ -140,6 +156,25 @@ public class SettingsStateTest {
         assertTrue(enabled.isPreciseProgressEnabled());
         assertTrue(enabled.isPrecisionSelectorEnabled());
         assertEquals(ProgressPrecision.HUNDREDTHS, enabled.selectedPrecision());
+    }
+
+    @Test
+    public void preciseProgressStatusReflectsItsOwnFourHookChain() {
+        SettingsState available = new SettingsState(
+                BypassConfig.defaults(), "3.63.0", Map.of(),
+                ExecutionCoverage.AVAILABLE, false,
+                PreciseProgressCoverage.AVAILABLE, 4
+        );
+        SettingsState partial = new SettingsState(
+                BypassConfig.defaults().withPreciseProgress(false), "3.63.0", Map.of(),
+                ExecutionCoverage.AVAILABLE, false,
+                PreciseProgressCoverage.PARTIAL, 2
+        );
+
+        assertEquals("可用 · 动态适配 4 / 4", available.preciseProgressStatus());
+        assertTrue(available.isPreciseProgressToggleEnabled());
+        assertEquals("部分可用 · 2 / 4", partial.preciseProgressStatus());
+        assertFalse(partial.isPreciseProgressToggleEnabled());
     }
 
     private static SettingsState state(

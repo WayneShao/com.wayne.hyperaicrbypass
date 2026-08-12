@@ -42,6 +42,40 @@ public final class PreciseProgressHookCatalog {
                     Set.of("analyse_progress", "refreshUIStatus scope:")
             )
     );
+    private static final List<Point> BRANCH_FALLBACKS = List.of(
+            point(
+                    Kind.CAPTURE,
+                    "il2",
+                    "a",
+                    "int",
+                    List.of("int", "int", "int", "int", "int", "int"),
+                    true,
+                    Set.of("GalleryProgressMonitor.calculateProgress", " base：",
+                            "  numerator:")
+            ),
+            point(
+                    Kind.TRANSPORT,
+                    "ok5",
+                    "g",
+                    "android.os.Bundle",
+                    List.of("int", "boolean", "oa6"),
+                    false,
+                    Set.of("ProgressMonitor.getMigratedProgress", "analyse_progress",
+                            "analyse_status")
+            ),
+            point(
+                    Kind.DISPLAY,
+                    "com.xiaomi.aicr.aisearch.progress.AISearchProgressActivity",
+                    "refreshUI$staticBridge",
+                    "void",
+                    List.of(
+                            "com.xiaomi.aicr.aisearch.progress.AISearchProgressActivity",
+                            "android.os.Bundle"
+                    ),
+                    true,
+                    Set.of("analyse_progress", "analyse_status")
+            )
+    );
 
     private PreciseProgressHookCatalog() {
     }
@@ -50,12 +84,28 @@ public final class PreciseProgressHookCatalog {
         return POINTS;
     }
 
+    public static List<Point> branchFallbacks() {
+        return BRANCH_FALLBACKS;
+    }
+
     private static Point point(
             Kind kind,
             String className,
             String methodName,
             String returnType,
             List<String> parameterTypes,
+            Set<String> anchors
+    ) {
+        return point(kind, className, methodName, returnType, parameterTypes, false, anchors);
+    }
+
+    private static Point point(
+            Kind kind,
+            String className,
+            String methodName,
+            String returnType,
+            List<String> parameterTypes,
+            boolean isStatic,
             Set<String> anchors
     ) {
         return new Point(
@@ -69,7 +119,7 @@ public final class PreciseProgressHookCatalog {
                         "com.xiaomi.aicr",
                         returnType,
                         parameterTypes,
-                        false,
+                        isStatic,
                         anchors
                 )
         );

@@ -96,4 +96,17 @@ public final class PreciseProgressHooksTest {
                 true, 2
         ));
     }
+
+    @Test
+    public void parsesSixArgumentV3GalleryFormula() {
+        PreciseProgressSnapshot snapshot = PreciseProgressHookLogic.snapshotFromCalculator(
+                new Object[]{100_000, 95_999, 83_939, 83_953, 83_173, 83_895},
+                83,
+                1_000L
+        ).orElseThrow();
+
+        assertEquals(334_960L, snapshot.numerator());
+        assertEquals(395_999L, snapshot.denominator());
+        assertEquals(83, snapshot.fixedProgress());
+    }
 }

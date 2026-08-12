@@ -9,6 +9,7 @@ import android.widget.TextView;
 import com.wayne.hyperaicrbypass.config.ConfigClient;
 
 import org.luckypray.dexkit.DexKitBridge;
+import com.wayne.hyperaicrbypass.adapt.DexKitBridgeFactory;
 import org.luckypray.dexkit.query.FindMethod;
 import org.luckypray.dexkit.query.matchers.MethodMatcher;
 import org.luckypray.dexkit.result.MethodData;
@@ -36,6 +37,7 @@ public final class GlobalPreciseProgressHooks {
     private final Context context;
     private final ClassLoader classLoader;
     private final ConfigClient configClient;
+    private final AicrVersionBranch versionBranch;
     private final GlobalProgressRequestCollector collector =
             new GlobalProgressRequestCollector();
     private final AtomicReference<GlobalProgressSnapshot> latest =
@@ -47,6 +49,7 @@ public final class GlobalPreciseProgressHooks {
         this.context = context;
         this.classLoader = context.getClassLoader();
         this.configClient = configClient;
+        this.versionBranch = AicrPackageVersion.branch(context);
     }
 
     public int install() {
@@ -54,10 +57,12 @@ public final class GlobalPreciseProgressHooks {
         Set<String> installed = new LinkedHashSet<>();
         List<GlobalProgressHookCatalog.Point> missing = new ArrayList<>();
         try {
+            String runningStatusClass = versionBranch == AicrVersionBranch.V3
+                    ? "u16" : "com.xiaomi.aicr.searchpro.monitor.RunningStatus";
             runningStatus = ReflectionHelpers.getStaticObjectField(
-                    find("com.xiaomi.aicr.searchpro.monitor.RunningStatus"), "INSTANCE");
+                    find(runningStatusClass), "INSTANCE");
             for (GlobalProgressHookCatalog.Point point
-                    : GlobalProgressHookCatalog.points()) {
+                    : GlobalProgressHookCatalog.points(versionBranch)) {
                 if (installExact(point)) {
                     installed.add(point.id());
                 } else {
@@ -71,7 +76,7 @@ public final class GlobalPreciseProgressHooks {
             ModernXposed.log(TAG + ": global precise setup failed -> " + error);
         }
         installedPointIds = Set.copyOf(installed);
-        int requiredHooks = GlobalProgressHookCatalog.points().size();
+        int requiredHooks = GlobalProgressHookCatalog.points(versionBranch).size();
         ModernXposed.log(TAG + ": global precise hooks=" + installed.size() + "/"
                 + requiredHooks + " direct="
                 + ready(GlobalProgressBranch.MIGRATED_DIRECT_AI)
@@ -91,6 +96,9 @@ public final class GlobalPreciseProgressHooks {
                             && param.args[1] instanceof Boolean cache) {
                         param.setObjectExtra("global-index",
                                 collector.beginIndex(scope, cache));
+                        if (versionBranch == AicrVersionBranch.V3) {
+                            collector.markMigratedDirect();
+                        }
                     }
                 } catch (Throwable error) {
                     logCallback("index-before", error);
@@ -332,8 +340,8 @@ public final class GlobalPreciseProgressHooks {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) {
                 try {
-                    if (!enabled() || param.args.length != 1
-                            || !(param.args[0] instanceof Bundle bundle)) {
+                    Bundle bundle = displayBundle(param);
+                    if (!enabled() || bundle == null) {
                         return;
                     }
                     int scope = bundle.getInt(SCOPE, 0);
@@ -360,8 +368,9 @@ public final class GlobalPreciseProgressHooks {
             @Override
             protected void afterHookedMethod(MethodHookParam param) {
                 try {
-                    if (!enabled() || param.args.length != 1
-                            || !(param.args[0] instanceof Bundle bundle)) {
+                    Bundle bundle = displayBundle(param);
+                    Object activity = displayActivity(param);
+                    if (!enabled() || bundle == null || activity == null) {
                         return;
                     }
                     Optional<GlobalProgressSnapshot> payload =
@@ -382,7 +391,7 @@ public final class GlobalPreciseProgressHooks {
                             );
                     if (loading.isPresent()) {
                         Object binding = ReflectionHelpers.getObjectField(
-                                param.thisObject, "mBinding");
+                                activity, "mBinding");
                         Object buttonObject = ReflectionHelpers.getObjectField(
                                 binding, "mbtAnalyze");
                         Object buttonTextObject = ReflectionHelpers.getObjectField(
@@ -412,7 +421,7 @@ public final class GlobalPreciseProgressHooks {
                     latest.set(selected.get());
 
                     Object binding = ReflectionHelpers.getObjectField(
-                            param.thisObject, "mBinding");
+                            activity, "mBinding");
                     Object descriptionObject = ReflectionHelpers.getObjectField(
                             binding, "tvAiSearchDesc");
                     Object buttonObject = ReflectionHelpers.getObjectField(
@@ -470,7 +479,8 @@ public final class GlobalPreciseProgressHooks {
             Method method = owner.getDeclaredMethod(
                     point.methodName(), resolveTypes(point.parameterTypes())
             );
-            if (!method.getReturnType().equals(resolveType(point.returnType()))) {
+            if (!method.getReturnType().equals(resolveType(point.returnType()))
+                    || Modifier.isStatic(method.getModifiers()) != point.isStatic()) {
                 throw new NoSuchMethodException("Return type mismatch");
             }
             ModernXposed.hookMethod(method, callback(point.id()));
@@ -487,8 +497,7 @@ public final class GlobalPreciseProgressHooks {
             List<GlobalProgressHookCatalog.Point> missing
     ) {
         Set<String> installed = new LinkedHashSet<>();
-        try (DexKitBridge bridge = DexKitBridge.create(
-                context.getApplicationInfo().sourceDir)) {
+        try (DexKitBridge bridge = DexKitBridgeFactory.create(context)) {
             for (GlobalProgressHookCatalog.Point point : missing) {
                 Method candidate = findUniqueCandidate(bridge, point);
                 if (candidate == null) {
@@ -524,16 +533,15 @@ public final class GlobalPreciseProgressHooks {
                 matcher.usingStrings(point.requiredAnchors());
             }
             FindMethod query = FindMethod.create()
-                    .searchPackages(point.packageName())
                     .matcher(matcher);
             Set<Method> candidates = new LinkedHashSet<>();
             for (MethodData data : bridge.findMethod(query)) {
-                if (Modifier.isStatic(data.getModifiers())) {
+                if (Modifier.isStatic(data.getModifiers()) != point.isStatic()
+                        || !expectedOwner(point, data.getClassName())) {
                     continue;
                 }
                 Method method = data.getMethodInstance(classLoader);
-                if (method.getDeclaringClass().getName().equals(point.className())
-                        && matchesShape(method, point)) {
+                if (matchesShape(method, point)) {
                     candidates.add(method);
                 }
             }
@@ -567,7 +575,7 @@ public final class GlobalPreciseProgressHooks {
             GlobalProgressHookCatalog.Point point
     ) {
         if (!method.getReturnType().getName().equals(point.returnType())
-                || Modifier.isStatic(method.getModifiers())) {
+                || Modifier.isStatic(method.getModifiers()) != point.isStatic()) {
             return false;
         }
         Class<?>[] parameters = method.getParameterTypes();
@@ -615,10 +623,40 @@ public final class GlobalPreciseProgressHooks {
 
     private boolean ready(GlobalProgressBranch branch) {
         return installedPointIds.containsAll(
-                GlobalProgressHookCatalog.requiredPointIds(branch));
+                GlobalProgressHookCatalog.requiredPointIds(versionBranch, branch));
+    }
+
+    private static boolean expectedOwner(
+            GlobalProgressHookCatalog.Point point,
+            String className
+    ) {
+        return point.className().equals(className);
+    }
+
+    private Bundle displayBundle(ModernHook.MethodHookParam param) {
+        int index = versionBranch == AicrVersionBranch.V3 ? 1 : 0;
+        return param.args.length > index && param.args[index] instanceof Bundle bundle
+                ? bundle : null;
+    }
+
+    private Object displayActivity(ModernHook.MethodHookParam param) {
+        if (param.thisObject != null) {
+            return param.thisObject;
+        }
+        return param.args.length > 0 ? param.args[0] : null;
     }
 
     private long runningStartTime() {
+        if (versionBranch == AicrVersionBranch.V3) {
+            try {
+                Method method = find("u16").getDeclaredMethod("w");
+                method.setAccessible(true);
+                Object result = method.invoke(null);
+                return result instanceof Long value ? value : -1L;
+            } catch (Throwable error) {
+                throw new IllegalStateException("Cannot read V3 running start time", error);
+            }
+        }
         Object result = ReflectionHelpers.callMethod(runningStatus, "getRunningStartTime");
         return result instanceof Long value ? value : -1L;
     }

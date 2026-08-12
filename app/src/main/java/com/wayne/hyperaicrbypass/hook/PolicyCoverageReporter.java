@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Bundle;
 
 import com.wayne.hyperaicrbypass.adapt.CoverageLayer;
+import com.wayne.hyperaicrbypass.adapt.DiscoveryKey;
 import com.wayne.hyperaicrbypass.config.BypassSettingsProvider;
 import com.wayne.hyperaicrbypass.config.ConfigContract;
 import com.wayne.hyperaicrbypass.config.Policy;
@@ -19,10 +20,10 @@ public final class PolicyCoverageReporter {
     private final Context context;
     private final Map<Policy, Integer> expectedCounts;
 
-    public PolicyCoverageReporter(Context context) {
+    public PolicyCoverageReporter(Context context, AicrVersionBranch branch) {
         this.context = context;
         EnumMap<Policy, Integer> expected = new EnumMap<>(Policy.class);
-        for (HookSpec spec : ExactHookCatalog.aicrSpecs()) {
+        for (HookSpec spec : ExactHookCatalog.aicrSpecs(branch)) {
             expected.merge(spec.policy(), 1, Integer::sum);
         }
         expectedCounts = Map.copyOf(expected);
@@ -31,7 +32,7 @@ public final class PolicyCoverageReporter {
     public void report(
             Map<Policy, Integer> exactCounts,
             Map<Policy, Integer> semanticCounts,
-            long generation
+            DiscoveryKey key
     ) {
         for (Policy policy : Policy.values()) {
             int expected = expectedCounts.getOrDefault(policy, 1);
@@ -51,7 +52,8 @@ public final class PolicyCoverageReporter {
             Bundle extras = new Bundle();
             extras.putString(ConfigContract.KEY_POLICY, policy.getKey());
             extras.putString(ConfigContract.KEY_LAYER, layer.name());
-            extras.putLong(ConfigContract.KEY_GENERATION, generation);
+            extras.putLong(ConfigContract.KEY_GENERATION, key.rescanGeneration());
+            extras.putString(ConfigContract.KEY_EXECUTION_DISCOVERY_KEY, key.stableValue());
             try {
                 context.getContentResolver().call(
                         BypassSettingsProvider.CONTENT_URI,

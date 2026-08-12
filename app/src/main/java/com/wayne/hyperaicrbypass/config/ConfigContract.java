@@ -17,6 +17,11 @@ public final class ConfigContract {
     public static final String METHOD_GET_COVERAGE = "get_coverage";
     public static final String METHOD_REPORT_EXECUTION_COVERAGE =
             "report_execution_coverage";
+    public static final String METHOD_REPORT_PRECISE_PROGRESS_COVERAGE =
+            "report_precise_progress_coverage";
+    public static final String METHOD_GET_BROWSER_CONFIG = "get_browser_config";
+    public static final String METHOD_SET_BROWSER_CONFIG = "set_browser_config";
+    public static final String METHOD_REPORT_BROWSER_COVERAGE = "report_browser_coverage";
 
     public static final String KEY_MASTER = "master";
     public static final String KEY_MODE = "mode";
@@ -39,6 +44,17 @@ public final class ConfigContract {
     public static final String KEY_DISCOVERY_UPDATE_TIME = "discovery_update_time";
     public static final String KEY_DISCOVERY_SCHEMA_REVISION = "discovery_schema_revision";
     public static final String KEY_EXECUTION_DISCOVERY_KEY = "execution_discovery_key";
+    public static final String KEY_PRECISE_PROGRESS_COVERAGE = "precise_progress_coverage";
+    public static final String KEY_PRECISE_PROGRESS_COUNT = "precise_progress_count";
+    public static final String KEY_PRECISE_PROGRESS_EXPECTED = "precise_progress_expected";
+    public static final String KEY_PRECISE_PROGRESS_DISCOVERY_KEY =
+            "precise_progress_discovery_key";
+    public static final String KEY_BROWSER_ENABLED = "browser_enabled";
+    public static final String KEY_BROWSER_PACKAGE = "browser_package";
+    public static final String KEY_BROWSER_DISCOVERY_KEY = "browser_discovery_key";
+    public static final String KEY_BROWSER_COVERAGE = "browser_coverage";
+    public static final String KEY_BROWSER_HOOK_COUNT = "browser_hook_count";
+    public static final String KEY_BROWSER_HOOK_EXPECTED = "browser_hook_expected";
     public static final String POLICY_PREFIX = "policy.";
 
     public static final int MAX_SHORT_TEXT_LENGTH = 512;
@@ -52,6 +68,10 @@ public final class ConfigContract {
 
     public static String coverageKey(Policy policy) {
         return KEY_COVERAGE + "." + Objects.requireNonNull(policy).getKey();
+    }
+
+    public static String coverageDiscoveryKey(Policy policy) {
+        return coverageKey(policy) + ".discovery_key";
     }
 
     public static String requireShortText(String value, String fieldName) {

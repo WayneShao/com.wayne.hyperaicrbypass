@@ -42,4 +42,27 @@ public final class SemanticHooksTest {
 
         assertTrue(SemanticDiscoveryPolicy.needsDiscovery(List.of(aicrHook)));
     }
+
+    @Test
+    public void enablesDiscoveryForObfuscatedAicrMissesByPolicy() {
+        HookSpec obfuscated = new HookSpec(
+                "u16",
+                "C",
+                "int",
+                List.of(),
+                Policy.TEMPERATURE,
+                HookBehavior.RESULT_ZERO_INT
+        );
+
+        assertTrue(SemanticDiscoveryPolicy.needsDiscovery(List.of(obfuscated)));
+        assertTrue(SemanticHooks.semanticSpecsFor(List.of(obfuscated)).stream()
+                .anyMatch(spec -> spec.policy() == Policy.TEMPERATURE));
+    }
+
+    @Test
+    public void unknownBranchScansAllSemanticPoliciesWithoutFakeExactMisses() {
+        assertTrue(SemanticHooks.semanticSpecsFor(
+                List.of(), AicrVersionBranch.UNKNOWN
+        ).size() >= Policy.values().length - 1);
+    }
 }

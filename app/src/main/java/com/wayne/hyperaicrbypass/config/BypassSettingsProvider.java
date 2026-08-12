@@ -14,6 +14,8 @@ import java.util.Collections;
 import com.wayne.hyperaicrbypass.adapt.CoverageLayer;
 import com.wayne.hyperaicrbypass.adapt.DiscoveryKey;
 import com.wayne.hyperaicrbypass.hook.ExecutionCoverage;
+import com.wayne.hyperaicrbypass.hook.PreciseProgressCoverage;
+import com.wayne.hyperaicrbypass.hook.BrowserHookCoverage;
 
 public final class BypassSettingsProvider extends ContentProvider {
     public static final Uri CONTENT_URI = Uri.parse("content://" + ConfigContract.AUTHORITY);
@@ -21,6 +23,7 @@ public final class BypassSettingsProvider extends ContentProvider {
     private ConfigStore store;
     private CallerAuthorizer authorizer;
     private CoverageStore coverageStore;
+    private BrowserConfigStore browserConfigStore;
 
     @Override
     public boolean onCreate() {
@@ -29,6 +32,7 @@ public final class BypassSettingsProvider extends ContentProvider {
         }
         store = new ConfigStore(getContext());
         coverageStore = new CoverageStore(getContext());
+        browserConfigStore = new BrowserConfigStore(getContext());
         ApplicationInfo applicationInfo = getContext().getApplicationInfo();
         authorizer = new CallerAuthorizer(applicationInfo.uid, uid -> {
             String[] packages = getContext().getPackageManager().getPackagesForUid(uid);
@@ -85,6 +89,20 @@ public final class BypassSettingsProvider extends ContentProvider {
                 require(authorizer.canMutate(callerUid), "rescan");
                 yield changed(store.update(BypassConfig::nextRescanGeneration));
             }
+            case ConfigContract.METHOD_GET_BROWSER_CONFIG -> {
+                require(authorizer.canReadSnapshot(callerUid), "browser config read");
+                yield BrowserConfigClient.encode(browserConfigStore.read());
+            }
+            case ConfigContract.METHOD_SET_BROWSER_CONFIG -> {
+                require(authorizer.canMutate(callerUid), "browser config mutation");
+                boolean enabled = requireBoolean(extras, ConfigContract.KEY_BROWSER_ENABLED);
+                String packageName = requireText(extras, ConfigContract.KEY_BROWSER_PACKAGE);
+                BrowserConfig updated = browserConfigStore.update(enabled, packageName);
+                if (getContext() != null) {
+                    getContext().getContentResolver().notifyChange(CONTENT_URI, null);
+                }
+                yield BrowserConfigClient.encode(updated);
+            }
             case ConfigContract.METHOD_REPORT_COVERAGE -> {
                 require(authorizer.canReportCoverage(callerUid), "coverage report");
                 Policy policy = Policy.fromKey(requireText(extras, ConfigContract.KEY_POLICY));
@@ -92,7 +110,10 @@ public final class BypassSettingsProvider extends ContentProvider {
                         requireText(extras, ConfigContract.KEY_LAYER)
                 );
                 long generation = requireNonNegativeLong(extras, ConfigContract.KEY_GENERATION);
-                coverageStore.report(policy, layer, generation);
+                String discoveryKey = requireText(
+                        extras, ConfigContract.KEY_EXECUTION_DISCOVERY_KEY
+                );
+                coverageStore.report(policy, layer, generation, discoveryKey);
                 if (getContext() != null) {
                     getContext().getContentResolver().notifyChange(CONTENT_URI, null);
                 }
@@ -121,12 +142,52 @@ public final class BypassSettingsProvider extends ContentProvider {
                 }
                 yield Bundle.EMPTY;
             }
+            case ConfigContract.METHOD_REPORT_PRECISE_PROGRESS_COVERAGE -> {
+                require(authorizer.canReportCoverage(callerUid),
+                        "precise progress coverage report");
+                String discoveryKey = requireText(
+                        extras, ConfigContract.KEY_PRECISE_PROGRESS_DISCOVERY_KEY
+                );
+                PreciseProgressCoverage coverage = PreciseProgressCoverage.valueOf(
+                        requireText(extras, ConfigContract.KEY_PRECISE_PROGRESS_COVERAGE)
+                );
+                int count = requireNonNegativeInt(
+                        extras, ConfigContract.KEY_PRECISE_PROGRESS_COUNT
+                );
+                int expected = requireNonNegativeInt(
+                        extras, ConfigContract.KEY_PRECISE_PROGRESS_EXPECTED
+                );
+                coverageStore.reportPreciseProgress(discoveryKey, coverage, count, expected);
+                if (getContext() != null) {
+                    getContext().getContentResolver().notifyChange(CONTENT_URI, null);
+                }
+                yield Bundle.EMPTY;
+            }
+            case ConfigContract.METHOD_REPORT_BROWSER_COVERAGE -> {
+                require(authorizer.canReportCoverage(callerUid), "browser coverage report");
+                coverageStore.reportBrowser(
+                        requireText(extras, ConfigContract.KEY_BROWSER_DISCOVERY_KEY),
+                        BrowserHookCoverage.valueOf(
+                                requireText(extras, ConfigContract.KEY_BROWSER_COVERAGE)
+                        ),
+                        requireNonNegativeInt(extras, ConfigContract.KEY_BROWSER_HOOK_COUNT),
+                        requireNonNegativeInt(extras, ConfigContract.KEY_BROWSER_HOOK_EXPECTED)
+                );
+                if (getContext() != null) {
+                    getContext().getContentResolver().notifyChange(CONTENT_URI, null);
+                }
+                yield Bundle.EMPTY;
+            }
             case ConfigContract.METHOD_GET_COVERAGE -> {
                 require(authorizer.canReadSnapshot(callerUid), "coverage read");
                 Bundle response = new Bundle();
                 for (var entry : coverageStore.read().entrySet()) {
                     response.putString(
                             ConfigContract.coverageKey(entry.getKey()), entry.getValue().name()
+                    );
+                    response.putString(
+                            ConfigContract.coverageDiscoveryKey(entry.getKey()),
+                            coverageStore.readPolicyDiscoveryKey(entry.getKey())
                     );
                 }
                 CoverageStore.ExecutionRecord execution = coverageStore.readExecution();
@@ -154,6 +215,25 @@ public final class BypassSettingsProvider extends ContentProvider {
                         ConfigContract.KEY_RESCAN_GENERATION,
                         execution.key().rescanGeneration()
                 );
+                CoverageStore.PreciseProgressRecord precise =
+                        coverageStore.readPreciseProgress();
+                response.putString(ConfigContract.KEY_PRECISE_PROGRESS_DISCOVERY_KEY,
+                        precise.discoveryKey());
+                response.putString(ConfigContract.KEY_PRECISE_PROGRESS_COVERAGE,
+                        precise.coverage().name());
+                response.putInt(ConfigContract.KEY_PRECISE_PROGRESS_COUNT,
+                        precise.installedCount());
+                response.putInt(ConfigContract.KEY_PRECISE_PROGRESS_EXPECTED,
+                        precise.expectedCount());
+                CoverageStore.BrowserRecord browser = coverageStore.readBrowser();
+                response.putString(ConfigContract.KEY_BROWSER_DISCOVERY_KEY,
+                        browser.discoveryKey());
+                response.putString(ConfigContract.KEY_BROWSER_COVERAGE,
+                        browser.coverage().name());
+                response.putInt(ConfigContract.KEY_BROWSER_HOOK_COUNT,
+                        browser.installedCount());
+                response.putInt(ConfigContract.KEY_BROWSER_HOOK_EXPECTED,
+                        browser.expectedCount());
                 yield response;
             }
             default -> throw new IllegalArgumentException("Unknown provider method: " + method);

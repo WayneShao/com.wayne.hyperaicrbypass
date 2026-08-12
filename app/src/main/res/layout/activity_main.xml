@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/surface_background"
@@ -216,11 +217,11 @@
                         android:textSize="16sp" />
 
                     <TextView
+                        android:id="@+id/precise_progress_status"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="3dp"
-                        android:text="@string/precise_progress_switch_detail"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="@color/status_pending"
                         android:textSize="13sp" />
                 </LinearLayout>
 
@@ -316,6 +317,81 @@
                     android:layout_width="wrap_content"
                     android:layout_height="48dp"
                     android:contentDescription="@string/launcher_icon_switch" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:gravity="center_vertical"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:text="@string/copy_browser_section"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:background="@color/surface_primary"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/copy_browser_switch"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:id="@+id/copy_browser_status"
+                        android:text="@string/copy_browser_switch_detail"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/copy_browser_switch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:contentDescription="@string/copy_browser_switch" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/copy_browser_selector_row"
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:background="@color/surface_primary"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="40dp"
+                android:paddingEnd="20dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/copy_browser_label"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp" />
+
+                <Spinner
+                    android:id="@+id/copy_browser_selector"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:minWidth="160dp" />
             </LinearLayout>
 
             <LinearLayout

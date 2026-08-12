@@ -8,4 +8,8 @@
     <color name="divider">#E2E5E9</color>
     <color name="action_primary">#166C54</color>
     <color name="status_pending">#8A5A12</color>
+    <color name="status_exact">#167A55</color>
+    <color name="status_adapted">#1F63B5</color>
+    <color name="status_partial">#A05A00</color>
+    <color name="status_unavailable">#B3261E</color>
 </resources>

@@ -22,6 +22,7 @@
 - 可隐藏启动器图标；隐藏后仍可从 LSPosed 的模块设置入口打开界面。
 - 打开设置时检测 modern Xposed 服务；模块未启用时提示用户并立即退出。
 - 精细进度与运行模式独立，可关闭或选择十分位、百分位、千分位，两个 AICR 进度界面使用相同的 `HALF_UP` 四舍五入规则。
+- 可将 AICR“复制网址”识别结果交给系统默认浏览器或指定浏览器；候选列表只包含同时声明浏览器入口并支持 HTTP/HTTPS 的应用。
 
 可独立控制的 11 类策略：
 
@@ -41,6 +42,8 @@
 
 ## 版本适配
 
+这里的 3.x / 4.x 指 AICR 应用自身版本，不是 HyperOS 版本。当前已知分支按 AICR 3.x 与 AICR 4.x 分别维护精确签名，并共享严格的动态发现回退。
+
 模块优先使用当前已知的精确类名和方法签名。精确 Hook 点不存在时，才使用 DexKit 根据包名、返回值、完整参数形状、静态/实例属性和代码字符串锚点进行语义查找。
 
 语义查找只接受唯一且通过完整校验的候选方法。没有候选或存在歧义时，该 Hook 会保持禁用，而不是猜测一个方法后继续执行。更新 AICR 后可以在模块界面点击“重新适配当前 AICR 版本”清除旧映射并重新发现。
@@ -59,12 +62,14 @@
 | Android | 16 |
 | HyperOS | `OS3.0.307.6.WPACNXM` |
 | 进程 ABI | `arm64-v8a` |
-| AICR | `4.0.6`（versionCode `2030040006`） |
+| AICR | `3.63.0`（versionCode `2030036300`，实机 Hook 覆盖 11/11、精细进度 12/12、浏览器入口 2/2） |
 | 小米相册 | `5.0.7.7-0720-R`（versionCode `5000707`） |
 | AI Service | `3.12.2_dd2be79_260427_cn`（versionCode `312002`） |
 | LSPosed / Vector | `2.1.1`，libxposed API `102` |
 
 模块应用最低支持 Android 9（API 28），框架必须支持 modern libxposed API 102。实际 Hook 兼容性仍取决于设备 ROM、相册、AICR 和 AI Service 的具体实现。
+
+AICR `4.0.6`（versionCode `2030040006`）已完成 APK 反编译签名映射和自动化目录测试；本次发布前的最终实机回归使用上表中的 `3.63.0`。
 
 ## 安装与作用域
 
@@ -156,6 +161,12 @@ modern libxposed API 102 版本为 `versionCode=2`、`versionName=1.1.0`，对�
 
 ```text
 3-1.1.1
+```
+
+AICR 3.x / 4.x 双分支适配、Hook 可用状态及复制网址浏览器选择为 `versionCode=4`、`versionName=1.2.0`，对应 tag：
+
+```text
+4-1.2.0
 ```
 
 tag 推送后，Release 工作流会运行单元测试，构建 universal、`arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64` 五个 APK，使用同一正式证书签名并逐个验签。所有检查完成前 Release 保持为 draft；已经公开的同版本 Release 不会被覆盖。

@@ -13,20 +13,26 @@ public final class PreciseProgressHookLogic {
             Object result,
             long capturedElapsedRealtime
     ) {
-        if (args == null || args.length != 8 || !(result instanceof Integer fixedProgress)) {
+        if (args == null || !(result instanceof Integer fixedProgress)
+                || (args.length != 6 && args.length != 8)) {
             return Optional.empty();
         }
-        int[] values = new int[8];
+        int[] values = new int[args.length];
         for (int index = 0; index < args.length; index++) {
             if (!(args[index] instanceof Integer value)) {
                 return Optional.empty();
             }
             values[index] = value;
         }
+        if (values.length == 6) {
+            return PreciseProgressSnapshot.createV3(
+                    values[0], values[1], values[2], values[3], values[4], values[5],
+                    fixedProgress, capturedElapsedRealtime
+            );
+        }
         return PreciseProgressSnapshot.create(
-                values[0], values[1], values[2], values[3],
-                values[4], values[5], values[6], values[7],
-                fixedProgress, capturedElapsedRealtime
+                values[0], values[1], values[2], values[3], values[4], values[5],
+                values[6], values[7], fixedProgress, capturedElapsedRealtime
         );
     }
 

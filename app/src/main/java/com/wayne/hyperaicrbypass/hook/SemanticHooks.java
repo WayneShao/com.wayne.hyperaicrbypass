@@ -4,6 +4,7 @@ import android.content.Context;
 
 import com.wayne.hyperaicrbypass.adapt.SemanticHookCatalog;
 import com.wayne.hyperaicrbypass.adapt.SemanticHookSpec;
+import com.wayne.hyperaicrbypass.adapt.DexKitBridgeFactory;
 import com.wayne.hyperaicrbypass.config.ConfigClient;
 
 import org.luckypray.dexkit.DexKitBridge;
@@ -31,6 +32,7 @@ public final class SemanticHooks {
     private final Context context;
     private final ClassLoader classLoader;
     private final ConfigClient configClient;
+    private final AicrVersionBranch branch;
     private final Set<String> installedIds;
     private final EnumMap<com.wayne.hyperaicrbypass.config.Policy, Integer> policyCounts =
             new EnumMap<>(com.wayne.hyperaicrbypass.config.Policy.class);
@@ -38,28 +40,24 @@ public final class SemanticHooks {
     public SemanticHooks(
             Context context,
             ConfigClient configClient,
-            Set<String> registeredIds
+            Set<String> registeredIds,
+            AicrVersionBranch branch
     ) {
         this.context = context;
         this.classLoader = context.getClassLoader();
         this.configClient = configClient;
         this.installedIds = new HashSet<>(registeredIds);
+        this.branch = branch;
     }
 
     public synchronized int install(List<HookSpec> missingExact) {
-        if (!SemanticDiscoveryPolicy.needsDiscovery(missingExact)) {
+        if (branch != AicrVersionBranch.UNKNOWN
+                && !SemanticDiscoveryPolicy.needsDiscovery(missingExact)) {
             return 0;
         }
         int successes = 0;
-        try (DexKitBridge bridge = DexKitBridge.create(context.getApplicationInfo().sourceDir)) {
-            for (HookSpec missing : missingExact) {
-                if (!missing.className().startsWith("com.xiaomi.aicr.")) {
-                    continue;
-                }
-                SemanticHookSpec semantic = matchingSpec(missing);
-                if (semantic == null) {
-                    continue;
-                }
+        try (DexKitBridge bridge = DexKitBridgeFactory.create(context)) {
+            for (SemanticHookSpec semantic : semanticSpecsFor(missingExact, branch)) {
                 for (Method method : findCandidates(bridge, semantic)) {
                     String id = descriptor(method);
                     if (!installedIds.add(id)) {
@@ -94,12 +92,11 @@ public final class SemanticHooks {
                     .returnType(spec.returnType())
                     .paramTypes(spec.parameterTypes())
                     .usingStrings(spec.requiredAnchors());
-            FindMethod query = FindMethod.create()
-                    .searchPackages("com.xiaomi.aicr")
-                    .matcher(matcher);
+            FindMethod query = FindMethod.create().matcher(matcher);
             List<MethodData> data = new ArrayList<>(bridge.findMethod(query));
             List<MethodData> shaped = data.stream()
                     .filter(candidate -> Modifier.isStatic(candidate.getModifiers()) == spec.isStatic())
+                    .filter(candidate -> isExpectedOwner(branch, candidate.getClassName()))
                     .collect(Collectors.toList());
             List<MethodData> selected = selectUnambiguous(spec, shaped);
             LinkedHashSet<Method> methods = new LinkedHashSet<>();
@@ -139,6 +136,19 @@ public final class SemanticHooks {
         return List.of();
     }
 
+    static boolean isExpectedOwner(AicrVersionBranch branch, String className) {
+        if (className == null) {
+            return false;
+        }
+        return switch (branch) {
+            case V3 -> !className.contains(".")
+                    || className.startsWith("com.xiaomi.aicr.aisearch.");
+            case V4 -> className.startsWith("com.xiaomi.aicr.");
+            case UNKNOWN -> !className.contains(".")
+                    || className.startsWith("com.xiaomi.aicr.");
+        };
+    }
+
     private ModernHook callback(SemanticHookSpec spec) {
         return new ModernHook() {
             @Override
@@ -147,6 +157,7 @@ public final class SemanticHooks {
                     return;
                 }
                 switch (spec.behavior()) {
+                    case RESULT_TRUE -> param.setResult(true);
                     case RESULT_FALSE -> param.setResult(false);
                     case RESULT_ZERO_INT -> param.setResult(0);
                     case RESULT_ONE_INT -> param.setResult(1);
@@ -159,14 +170,28 @@ public final class SemanticHooks {
         };
     }
 
-    private static SemanticHookSpec matchingSpec(HookSpec missing) {
-        return SemanticHookCatalog.specs().stream()
-                .filter(spec -> spec.policy() == missing.policy())
-                .filter(spec -> spec.preferredMethodName().equals(missing.methodName()))
-                .filter(spec -> spec.returnType().equals(missing.returnType()))
-                .filter(spec -> spec.parameterTypes().equals(missing.parameterTypes()))
-                .findFirst()
-                .orElse(null);
+    static List<SemanticHookSpec> semanticSpecsFor(List<HookSpec> missingExact) {
+        return semanticSpecsFor(missingExact, AicrVersionBranch.V4);
+    }
+
+    static List<SemanticHookSpec> semanticSpecsFor(
+            List<HookSpec> missingExact,
+            AicrVersionBranch branch
+    ) {
+        if (branch == AicrVersionBranch.UNKNOWN) {
+            LinkedHashSet<SemanticHookSpec> all = new LinkedHashSet<>();
+            all.addAll(SemanticHookCatalog.specs(AicrVersionBranch.V3));
+            all.addAll(SemanticHookCatalog.specs(AicrVersionBranch.V4));
+            return List.copyOf(all);
+        }
+        Set<com.wayne.hyperaicrbypass.config.Policy> missingPolicies = missingExact.stream()
+                .map(HookSpec::policy)
+                .filter(policy -> policy
+                        != com.wayne.hyperaicrbypass.config.Policy.TASK_CONSTRAINTS)
+                .collect(Collectors.toSet());
+        return SemanticHookCatalog.specs(branch).stream()
+                .filter(spec -> missingPolicies.contains(spec.policy()))
+                .collect(Collectors.toList());
     }
 
     private static List<String> parameterNames(Method method) {

@@ -1,5 +1,7 @@
 package com.wayne.hyperaicrbypass.hook;
 
+import com.wayne.hyperaicrbypass.config.Policy;
+
 import java.util.List;
 
 final class SemanticDiscoveryPolicy {
@@ -8,6 +10,6 @@ final class SemanticDiscoveryPolicy {
 
     static boolean needsDiscovery(List<HookSpec> missingExact) {
         return missingExact.stream()
-                .anyMatch(spec -> spec.className().startsWith("com.xiaomi.aicr."));
+                .anyMatch(spec -> spec.policy() != Policy.TASK_CONSTRAINTS);
     }
 }

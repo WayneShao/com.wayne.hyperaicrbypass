@@ -8,8 +8,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
 import android.widget.RadioGroup;
+import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -19,6 +21,8 @@ import com.wayne.hyperaicrbypass.HyperAicrApplication;
 import com.wayne.hyperaicrbypass.adapt.CoverageLayer;
 import com.wayne.hyperaicrbypass.adapt.DiscoveryKey;
 import com.wayne.hyperaicrbypass.config.BundleConfigCodec;
+import com.wayne.hyperaicrbypass.config.BrowserConfig;
+import com.wayne.hyperaicrbypass.config.BrowserConfigClient;
 import com.wayne.hyperaicrbypass.config.BypassConfig;
 import com.wayne.hyperaicrbypass.config.BypassSettingsProvider;
 import com.wayne.hyperaicrbypass.config.ConfigContract;
@@ -27,9 +31,14 @@ import com.wayne.hyperaicrbypass.config.OperatingMode;
 import com.wayne.hyperaicrbypass.config.ProgressPrecision;
 import com.wayne.hyperaicrbypass.hook.ExecutionCoverage;
 import com.wayne.hyperaicrbypass.hook.ExecutionCoverageReporter;
+import com.wayne.hyperaicrbypass.hook.PreciseProgressCoverage;
 import com.wayne.hyperaicrbypass.hook.ExternalPowerMonitor;
+import com.wayne.hyperaicrbypass.hook.CopyWebsiteBrowser;
+import com.wayne.hyperaicrbypass.hook.BrowserHookCoverage;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 
 public final class MainActivity extends Activity {
     private static final long ACTIVATION_TIMEOUT_MS = 1_000L;
@@ -54,13 +63,18 @@ public final class MainActivity extends Activity {
     private Switch powerExceptionSwitch;
     private Switch preciseProgressSwitch;
     private Switch launcherIconSwitch;
+    private Switch copyBrowserSwitch;
     private Switch selectAllSwitch;
     private TextView selectionSummary;
     private TextView versionSummary;
     private TextView rescanSummary;
     private TextView runtimeSummary;
+    private TextView preciseProgressStatus;
+    private TextView copyBrowserStatus;
     private View powerExceptionRow;
     private RadioGroup precisionSelector;
+    private Spinner copyBrowserSelector;
+    private View copyBrowserSelectorRow;
     private LinearLayout policyContainer;
     private LauncherIconController launcherIconController;
     private final EnumMap<Policy, Switch> policySwitches = new EnumMap<>(Policy.class);
@@ -70,6 +84,7 @@ public final class MainActivity extends Activity {
     private BypassConfig lastConfig;
     private ExternalPowerMonitor powerMonitor;
     private boolean observingSettings;
+    private List<CopyWebsiteBrowser.BrowserChoice> browserChoices = List.of();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,6 +104,7 @@ public final class MainActivity extends Activity {
         settingsVisible = true;
         activationHandler.removeCallbacks(activationTimeout);
         setContentView(R.layout.activity_main);
+        applySystemBarInsets();
         bindViews();
         createPolicyRows();
         bindActions();
@@ -101,6 +117,20 @@ public final class MainActivity extends Activity {
             observingSettings = false;
         }
         refresh();
+    }
+
+    private void applySystemBarInsets() {
+        View root = findViewById(R.id.root_layout);
+        root.setOnApplyWindowInsetsListener((view, windowInsets) -> {
+            view.setPadding(
+                    windowInsets.getSystemWindowInsetLeft(),
+                    windowInsets.getSystemWindowInsetTop(),
+                    windowInsets.getSystemWindowInsetRight(),
+                    windowInsets.getSystemWindowInsetBottom()
+            );
+            return windowInsets;
+        });
+        root.requestApplyInsets();
     }
 
     private void enforceActivation() {
@@ -145,15 +175,21 @@ public final class MainActivity extends Activity {
         powerExceptionSwitch = findViewById(R.id.power_exception_switch);
         preciseProgressSwitch = findViewById(R.id.precise_progress_switch);
         launcherIconSwitch = findViewById(R.id.launcher_icon_switch);
+        copyBrowserSwitch = findViewById(R.id.copy_browser_switch);
+        copyBrowserSelector = findViewById(R.id.copy_browser_selector);
+        copyBrowserSelectorRow = findViewById(R.id.copy_browser_selector_row);
         selectAllSwitch = findViewById(R.id.select_all_switch);
         selectionSummary = findViewById(R.id.selection_summary);
         versionSummary = findViewById(R.id.version_summary);
         rescanSummary = findViewById(R.id.rescan_summary);
         runtimeSummary = findViewById(R.id.runtime_summary);
+        preciseProgressStatus = findViewById(R.id.precise_progress_status);
+        copyBrowserStatus = findViewById(R.id.copy_browser_status);
         powerExceptionRow = findViewById(R.id.power_exception_row);
         precisionSelector = findViewById(R.id.precision_selector);
         policyContainer = findViewById(R.id.policy_container);
         launcherIconController = new LauncherIconController(this);
+        populateBrowserChoices();
         powerMonitor = new ExternalPowerMonitor(this);
         powerMonitor.setListener(connected -> runOnUiThread(() -> {
             if (lastConfig != null && !isFinishing()) {
@@ -244,6 +280,31 @@ public final class MainActivity extends Activity {
                 renderLauncherIconState();
             }
         });
+        copyBrowserSwitch.setOnCheckedChangeListener((button, enabled) -> {
+            if (!rendering) {
+                BrowserConfig current = readBrowserConfig();
+                mutateBrowser(new BrowserConfig(enabled, current.packageName()));
+            }
+        });
+        copyBrowserSelector.setOnItemSelectedListener(
+                new android.widget.AdapterView.OnItemSelectedListener() {
+                    @Override
+                    public void onItemSelected(android.widget.AdapterView<?> parent, View view,
+                                               int position, long id) {
+                        if (rendering || position < 0 || position >= browserChoices.size()) {
+                            return;
+                        }
+                        BrowserConfig current = readBrowserConfig();
+                        mutateBrowser(new BrowserConfig(
+                                current.enabled(), browserChoices.get(position).packageName()
+                        ));
+                    }
+
+                    @Override
+                    public void onNothingSelected(android.widget.AdapterView<?> parent) {
+                    }
+                }
+        );
         selectAllSwitch.setOnCheckedChangeListener((button, selected) -> {
             if (!rendering) {
                 Bundle extras = new Bundle();
@@ -306,7 +367,10 @@ public final class MainActivity extends Activity {
                 findAicrVersion(),
                 coverageSnapshot.policies(),
                 coverageSnapshot.execution(),
-                powerMonitor != null && powerMonitor.isConnected()
+                powerMonitor != null && powerMonitor.isConnected(),
+                coverageSnapshot.preciseProgress(),
+                coverageSnapshot.preciseProgressCount(),
+                coverageSnapshot.preciseProgressExpected()
         );
         lastConfig = config;
         rendering = true;
@@ -318,9 +382,14 @@ public final class MainActivity extends Activity {
         powerExceptionRow.setAlpha(state.isPowerExceptionEditable() ? 1.0f : 0.55f);
         runtimeSummary.setText(state.runtimeSummary());
         preciseProgressSwitch.setChecked(state.isPreciseProgressEnabled());
+        preciseProgressSwitch.setEnabled(state.isPreciseProgressToggleEnabled());
+        preciseProgressStatus.setText(state.preciseProgressStatus());
+        preciseProgressStatus.setTextColor(coverageColor(state.preciseProgressLayer()));
         setPrecisionSelection(state.selectedPrecision());
         setPrecisionSelectorEnabled(state.isPrecisionSelectorEnabled());
         launcherIconSwitch.setChecked(launcherIconController.isVisible());
+        renderBrowserConfig(readBrowserConfig(), coverageSnapshot.browserCoverage(),
+                coverageSnapshot.browserHookCount(), coverageSnapshot.browserHookExpected());
         selectAllSwitch.setChecked(state.isSelectAllMode());
         selectionSummary.setText(state.selectionSummary());
         versionSummary.setText(state.versionSummary());
@@ -329,8 +398,92 @@ public final class MainActivity extends Activity {
             policySwitches.get(policy).setChecked(state.isPolicySelected(policy));
             policySwitches.get(policy).setEnabled(state.isPolicyEditable(policy));
             coverageViews.get(policy).setText(state.coverageLabel(policy));
+            coverageViews.get(policy).setTextColor(coverageColor(state.coverageLayer(policy)));
         }
         rendering = false;
+    }
+
+    private void populateBrowserChoices() {
+        browserChoices = CopyWebsiteBrowser.queryChoices(this);
+        List<String> labels = new ArrayList<>();
+        for (CopyWebsiteBrowser.BrowserChoice choice : browserChoices) {
+            labels.add(choice.label());
+        }
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this, android.R.layout.simple_spinner_item, labels
+        );
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        copyBrowserSelector.setAdapter(adapter);
+    }
+
+    private BrowserConfig readBrowserConfig() {
+        try {
+            Bundle response = getContentResolver().call(
+                    BypassSettingsProvider.CONTENT_URI,
+                    ConfigContract.METHOD_GET_BROWSER_CONFIG,
+                    null,
+                    null
+            );
+            return BrowserConfigClient.decode(response);
+        } catch (RuntimeException error) {
+            return BrowserConfig.defaults();
+        }
+    }
+
+    private void mutateBrowser(BrowserConfig config) {
+        Bundle extras = BrowserConfigClient.encode(config);
+        try {
+            Bundle response = getContentResolver().call(
+                    BypassSettingsProvider.CONTENT_URI,
+                    ConfigContract.METHOD_SET_BROWSER_CONFIG,
+                    null,
+                    extras
+            );
+            rendering = true;
+            renderBrowserConfig(BrowserConfigClient.decode(response),
+                    BrowserHookCoverage.PENDING, 0, 0);
+            rendering = false;
+        } catch (RuntimeException error) {
+            Toast.makeText(this, R.string.settings_write_failed, Toast.LENGTH_SHORT).show();
+            refresh();
+        }
+    }
+
+    private void renderBrowserConfig(
+            BrowserConfig config,
+            BrowserHookCoverage coverage,
+            int installed,
+            int expected
+    ) {
+        copyBrowserSwitch.setChecked(config.enabled());
+        boolean hookAvailable = coverage == BrowserHookCoverage.AVAILABLE
+                || coverage == BrowserHookCoverage.PARTIAL;
+        copyBrowserSwitch.setEnabled(hookAvailable || config.enabled());
+        boolean selectable = config.enabled() && hookAvailable && browserChoices.size() > 1;
+        copyBrowserSelector.setEnabled(selectable);
+        copyBrowserSelectorRow.setAlpha(selectable ? 1.0f : 0.55f);
+        int selected = 0;
+        for (int i = 0; i < browserChoices.size(); i++) {
+            if (browserChoices.get(i).packageName().equals(config.packageName())) {
+                selected = i;
+                break;
+            }
+        }
+        copyBrowserSelector.setSelection(selected, false);
+        String status = switch (coverage) {
+            case AVAILABLE -> "可用 · " + installed + " / " + expected;
+            case PARTIAL -> "部分可用 · " + installed + " / " + expected;
+            case UNAVAILABLE -> "不可用 · 当前 AICR 版本未适配";
+            case PENDING -> "等待 AICR 进程上报";
+        };
+        copyBrowserStatus.setText(status);
+        CoverageLayer layer = switch (coverage) {
+            case AVAILABLE -> CoverageLayer.SEMANTIC;
+            case PARTIAL -> CoverageLayer.PARTIAL;
+            case UNAVAILABLE -> CoverageLayer.UNAVAILABLE;
+            case PENDING -> CoverageLayer.PENDING;
+        };
+        copyBrowserStatus.setTextColor(coverageColor(layer));
     }
 
     private void setPrecisionSelection(ProgressPrecision precision) {
@@ -340,6 +493,17 @@ public final class MainActivity extends Activity {
             case THOUSANDTHS, ORIGINAL -> R.id.precision_thousandths;
         };
         precisionSelector.check(id);
+    }
+
+    private int coverageColor(CoverageLayer layer) {
+        int color = switch (layer) {
+            case EXACT -> R.color.status_exact;
+            case SEMANTIC, FALLBACK -> R.color.status_adapted;
+            case PARTIAL -> R.color.status_partial;
+            case UNAVAILABLE -> R.color.status_unavailable;
+            case PENDING -> R.color.status_pending;
+        };
+        return getColor(color);
     }
 
     private void setPrecisionSelectorEnabled(boolean enabled) {
@@ -359,6 +523,12 @@ public final class MainActivity extends Activity {
     private CoverageSnapshot readCoverage(BypassConfig config) {
         EnumMap<Policy, CoverageLayer> result = new EnumMap<>(Policy.class);
         ExecutionCoverage execution = ExecutionCoverage.PENDING;
+        PreciseProgressCoverage preciseProgress = PreciseProgressCoverage.PENDING;
+        int preciseProgressCount = 0;
+        int preciseProgressExpected = 0;
+        BrowserHookCoverage browserCoverage = BrowserHookCoverage.PENDING;
+        int browserHookCount = 0;
+        int browserHookExpected = 0;
         try {
             Bundle response = getContentResolver().call(
                     BypassSettingsProvider.CONTENT_URI,
@@ -367,27 +537,66 @@ public final class MainActivity extends Activity {
                     null
             );
             if (response == null) {
-                return new CoverageSnapshot(result, execution);
-            }
-            for (Policy policy : Policy.values()) {
-                String value = response.getString(ConfigContract.coverageKey(policy));
-                if (value != null) {
-                    result.put(policy, CoverageLayer.valueOf(value));
-                }
+                return new CoverageSnapshot(
+                        result, execution, preciseProgress, preciseProgressCount,
+                        preciseProgressExpected,
+                        browserCoverage, browserHookCount, browserHookExpected
+                );
             }
             String reportedKey = response.getString(
                     ConfigContract.KEY_EXECUTION_DISCOVERY_KEY
             );
             if (currentDiscoveryKey(config).stableValue().equals(reportedKey)) {
+                for (Policy policy : Policy.values()) {
+                    String policyValue = response.getString(ConfigContract.coverageKey(policy));
+                    String policyKey = response.getString(
+                            ConfigContract.coverageDiscoveryKey(policy)
+                    );
+                    if (policyValue != null && reportedKey.equals(policyKey)) {
+                        result.put(policy, CoverageLayer.valueOf(policyValue));
+                    }
+                }
                 String value = response.getString(ConfigContract.KEY_EXECUTION_COVERAGE);
                 if (value != null) {
                     execution = ExecutionCoverage.valueOf(value);
                 }
             }
+            String preciseKey = response.getString(
+                    ConfigContract.KEY_PRECISE_PROGRESS_DISCOVERY_KEY
+            );
+            if (currentDiscoveryKey(config).stableValue().equals(preciseKey)) {
+                String value = response.getString(
+                        ConfigContract.KEY_PRECISE_PROGRESS_COVERAGE
+                );
+                if (value != null) {
+                    preciseProgress = PreciseProgressCoverage.valueOf(value);
+                }
+                preciseProgressCount = response.getInt(
+                        ConfigContract.KEY_PRECISE_PROGRESS_COUNT, 0
+                );
+                preciseProgressExpected = response.getInt(
+                        ConfigContract.KEY_PRECISE_PROGRESS_EXPECTED, 0
+                );
+            }
+            String browserKey = response.getString(ConfigContract.KEY_BROWSER_DISCOVERY_KEY);
+            if (currentDiscoveryKey(config).stableValue().equals(browserKey)) {
+                String value = response.getString(ConfigContract.KEY_BROWSER_COVERAGE);
+                if (value != null) {
+                    browserCoverage = BrowserHookCoverage.valueOf(value);
+                }
+                browserHookCount = response.getInt(ConfigContract.KEY_BROWSER_HOOK_COUNT, 0);
+                browserHookExpected = response.getInt(
+                        ConfigContract.KEY_BROWSER_HOOK_EXPECTED, 0
+                );
+            }
         } catch (RuntimeException ignored) {
             // Pending is safer than disabling a row when coverage cannot be read.
         }
-        return new CoverageSnapshot(result, execution);
+        return new CoverageSnapshot(
+                result, execution, preciseProgress, preciseProgressCount,
+                preciseProgressExpected,
+                browserCoverage, browserHookCount, browserHookExpected
+        );
     }
 
     private String findAicrVersion() {
@@ -454,7 +663,13 @@ public final class MainActivity extends Activity {
 
     private record CoverageSnapshot(
             EnumMap<Policy, CoverageLayer> policies,
-            ExecutionCoverage execution
+            ExecutionCoverage execution,
+            PreciseProgressCoverage preciseProgress,
+            int preciseProgressCount,
+            int preciseProgressExpected,
+            BrowserHookCoverage browserCoverage,
+            int browserHookCount,
+            int browserHookExpected
     ) {
     }
 }

@@ -20,6 +20,11 @@
     <string name="launcher_icon_switch">显示启动器图标</string>
     <string name="launcher_icon_switch_detail">在桌面应用列表中显示</string>
     <string name="launcher_icon_write_failed">无法更新启动器图标状态</string>
+    <string name="copy_browser_section">复制网址</string>
+    <string name="copy_browser_switch">替换复制网址浏览器</string>
+    <string name="copy_browser_switch_detail">将 AICR 识别的网址交给所选浏览器</string>
+    <string name="copy_browser_label">目标浏览器</string>
+    <string name="copy_browser_empty">未找到同时支持 HTTP 与 HTTPS 的浏览器</string>
     <string name="policy_section">门槛策略</string>
     <string name="select_all">全选</string>
     <string name="rescan">重新适配当前 AICR 版本</string>

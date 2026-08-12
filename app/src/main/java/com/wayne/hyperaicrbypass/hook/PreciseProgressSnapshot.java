@@ -47,6 +47,26 @@ public record PreciseProgressSnapshot(
         return restore(numerator, denominator, fixedProgress, capturedElapsedRealtime);
     }
 
+    public static Optional<PreciseProgressSnapshot> createV3(
+            int totalPic,
+            int totalVid,
+            int ocrCount,
+            int tagCount,
+            int clipPicCount,
+            int clipVidCount,
+            int fixedProgress,
+            long capturedElapsedRealtime
+    ) {
+        long denominator = ((long) totalPic * 3L) + (long) totalVid;
+        if (denominator <= 0L) {
+            return fixedProgress == 100
+                    ? restore(0L, 0L, 100, capturedElapsedRealtime)
+                    : Optional.empty();
+        }
+        long numerator = (long) ocrCount + tagCount + clipPicCount + clipVidCount;
+        return restore(numerator, denominator, fixedProgress, capturedElapsedRealtime);
+    }
+
     public static Optional<PreciseProgressSnapshot> restore(
             long numerator,
             long denominator,

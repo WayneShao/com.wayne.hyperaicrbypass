@@ -11,6 +11,18 @@ import java.util.Set;
 
 public final class PreciseProgressHookCatalogTest {
     @Test
+    public void globalCatalogUsesVersionSpecificShapes() {
+        assertEquals(8, GlobalProgressHookCatalog.points(AicrVersionBranch.V3).size());
+        assertEquals(11, GlobalProgressHookCatalog.points(AicrVersionBranch.V4).size());
+        assertTrue(GlobalProgressHookCatalog.points(AicrVersionBranch.V3).stream()
+                .filter(point -> point.id().equals("local-calculator"))
+                .findFirst().orElseThrow().isStatic());
+        assertFalse(GlobalProgressHookCatalog.points(AicrVersionBranch.V4).stream()
+                .filter(point -> point.id().equals("local-calculator"))
+                .findFirst().orElseThrow().isStatic());
+    }
+
+    @Test
     public void definesExactCalculatorTransportNotificationAndDisplayShapes() {
         List<PreciseProgressHookCatalog.Point> points =
                 PreciseProgressHookCatalog.points();
@@ -48,7 +60,7 @@ public final class PreciseProgressHookCatalogTest {
     }
 
     @Test
-    public void everyFallbackIsAnInstanceMethodWithStrictAnchors() {
+    public void everyFallbackHasStrictAnchorsAndBranchSpecificShapes() {
         for (PreciseProgressHookCatalog.Point point : PreciseProgressHookCatalog.points()) {
             assertFalse(point.semanticQuery().isStatic());
             assertEquals("com.xiaomi.aicr", point.semanticQuery().packagePrefix());
@@ -56,6 +68,33 @@ public final class PreciseProgressHookCatalogTest {
             assertEquals(point.returnType(), point.semanticQuery().returnType());
             assertEquals(point.parameterTypes(), point.semanticQuery().parameterTypes());
         }
+
+        PreciseProgressHookCatalog.Point displayBridge =
+                PreciseProgressHookCatalog.branchFallbacks().stream()
+                        .filter(point -> point.kind() == PreciseProgressHookCatalog.Kind.DISPLAY)
+                        .findFirst().orElseThrow();
+        assertTrue(displayBridge.semanticQuery().isStatic());
+        assertEquals(List.of(
+                "com.xiaomi.aicr.aisearch.progress.AISearchProgressActivity",
+                "android.os.Bundle"
+        ), displayBridge.parameterTypes());
+        assertTrue(displayBridge.semanticQuery().requiredAnchors().contains("analyse_progress"));
+
+        PreciseProgressHookCatalog.Point v3Capture =
+                PreciseProgressHookCatalog.branchFallbacks().stream()
+                        .filter(point -> point.kind() == PreciseProgressHookCatalog.Kind.CAPTURE)
+                        .findFirst().orElseThrow();
+        assertEquals("il2", v3Capture.className());
+        assertEquals(List.of("int", "int", "int", "int", "int", "int"),
+                v3Capture.parameterTypes());
+        assertTrue(v3Capture.semanticQuery().isStatic());
+
+        PreciseProgressHookCatalog.Point v3Transport =
+                PreciseProgressHookCatalog.branchFallbacks().stream()
+                        .filter(point -> point.kind() == PreciseProgressHookCatalog.Kind.TRANSPORT)
+                        .findFirst().orElseThrow();
+        assertEquals("ok5", v3Transport.className());
+        assertEquals(List.of("int", "boolean", "oa6"), v3Transport.parameterTypes());
     }
 
     private static void assertPoint(

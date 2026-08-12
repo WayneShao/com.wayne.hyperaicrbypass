@@ -58,17 +58,38 @@ public final class HookBootstrap {
             return;
         }
         if ("com.xiaomi.aicr".equals(packageName)) {
+            long versionCode = AicrPackageVersion.read(context);
+            AicrVersionBranch branch = AicrPackageVersion.branch(context);
+            ModernXposed.log(TAG + ": AICR versionCode=" + versionCode
+                    + " branch=" + branch);
+            CopyWebsiteBrowserHooks browserHooks =
+                    new CopyWebsiteBrowserHooks(context, branch);
+            CopyWebsiteBrowserHooks.InstallResult browserResult = browserHooks.install();
             ExecutionCoverageReporter executionCoverageReporter =
                     new ExecutionCoverageReporter(context);
             DiscoveryKey executionKey = executionCoverageReporter.reportPending(
                     client.snapshot().getRescanGeneration()
             );
+            BrowserHookCoverageReporter browserCoverageReporter =
+                    new BrowserHookCoverageReporter(context);
+            browserCoverageReporter.report(executionKey, browserResult);
             PowerSaveExecutionHooks powerSaveHooks =
                     new PowerSaveExecutionHooks(context, client);
             PowerSaveExecutionHooks.InstallResult powerSaveResult = powerSaveHooks.install();
-            int preciseProgressCount = new PreciseProgressHooks(context, client).install();
-            int globalPreciseProgressCount =
-                    new GlobalPreciseProgressHooks(context, client).install();
+            PreciseProgressHooks preciseProgressHooks =
+                    new PreciseProgressHooks(context, client);
+            PreciseProgressCoverageReporter preciseCoverageReporter =
+                    new PreciseProgressCoverageReporter(context);
+            int preciseProgressCount = preciseProgressHooks.install();
+            GlobalPreciseProgressHooks globalPreciseProgressHooks =
+                    new GlobalPreciseProgressHooks(context, client);
+            int globalPreciseProgressCount = globalPreciseProgressHooks.install();
+            preciseCoverageReporter.report(
+                    executionKey,
+                    preciseProgressCount + globalPreciseProgressCount,
+                    PreciseProgressHookCatalog.points().size()
+                            + GlobalProgressHookCatalog.points(branch).size()
+            );
             AicrProviderTraceHooks providerHookInstaller =
                     new AicrProviderTraceHooks(context, client);
             AicrProviderTraceHooks.InstallResult providerHooks =
@@ -78,18 +99,21 @@ public final class HookBootstrap {
                     context.getClassLoader(), client
             ).install();
             ExactAicrHooks.InstallResult exact =
-                    new ExactAicrHooks(context.getClassLoader(), client).install();
+                    new ExactAicrHooks(
+                            context.getClassLoader(), client, branch
+                    ).install();
             SemanticHooks semantic = new SemanticHooks(
-                    context, client, exact.registeredIds()
+                    context, client, exact.registeredIds(), branch
             );
             int semanticCount = semantic.install(exact.missingSpecs());
-            PolicyCoverageReporter coverageReporter = new PolicyCoverageReporter(context);
+            PolicyCoverageReporter coverageReporter =
+                    new PolicyCoverageReporter(context, branch);
             coverageReporter.report(
                     exact.policyCounts(),
                     coverageWithProviderFallback(
                             semantic.policyCounts(), providerHooks.uiCompatibilityInstalled()
                     ),
-                    client.snapshot().getRescanGeneration()
+                    executionKey
             );
             RescanGenerationGate rescanGate = new RescanGenerationGate(
                     client.snapshot().getRescanGeneration()
@@ -109,6 +133,17 @@ public final class HookBootstrap {
                                 powerSaveHooks.install();
                         AicrProviderTraceHooks.InstallResult rescannedProviders =
                                 providerHookInstaller.install();
+                        int rescannedPreciseProgress = preciseProgressHooks.install();
+                        int rescannedGlobalProgress = globalPreciseProgressHooks.install();
+                        CopyWebsiteBrowserHooks.InstallResult rescannedBrowser =
+                                browserHooks.install();
+                        browserCoverageReporter.report(rescanKey, rescannedBrowser);
+                        preciseCoverageReporter.report(
+                                rescanKey,
+                                rescannedPreciseProgress + rescannedGlobalProgress,
+                                PreciseProgressHookCatalog.points().size()
+                                        + GlobalProgressHookCatalog.points(branch).size()
+                        );
                         semantic.install(exact.missingSpecs());
                         coverageReporter.report(
                                 exact.policyCounts(),
@@ -116,7 +151,7 @@ public final class HookBootstrap {
                                         semantic.policyCounts(),
                                         rescannedProviders.uiCompatibilityInstalled()
                                 ),
-                                config.getRescanGeneration()
+                                rescanKey
                         );
                         executionCoverageReporter.report(
                                 rescanKey, rescannedPowerSave, rescannedProviders
@@ -126,7 +161,8 @@ public final class HookBootstrap {
             });
             if (exact.aicrHookCount() + semanticCount + compatibilityCount
                     + providerHooks.installedCount() + preciseProgressCount
-                    + globalPreciseProgressCount + powerSaveResult.installedCount() == 0) {
+                    + globalPreciseProgressCount + powerSaveResult.installedCount()
+                    + browserResult.installedCount() == 0) {
                 showTotalFailureOnce(context);
             }
         }

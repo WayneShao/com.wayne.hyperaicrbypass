@@ -19,31 +19,37 @@ public final class ExactAicrHooks {
 
     private final ClassLoader classLoader;
     private final ConfigClient configClient;
+    private final List<HookSpec> specs;
     private final RegistrationPlanner planner = new RegistrationPlanner();
     private final Set<String> successfulPolicies = new HashSet<>();
 
-    public ExactAicrHooks(ClassLoader classLoader, ConfigClient configClient) {
+    public ExactAicrHooks(
+            ClassLoader classLoader,
+            ConfigClient configClient,
+            AicrVersionBranch branch
+    ) {
         this.classLoader = classLoader;
         this.configClient = configClient;
+        this.specs = ExactHookCatalog.aicrSpecs(branch);
     }
 
     public InstallResult install() {
         List<HookSpec> missing = new ArrayList<>();
-        for (HookSpec spec : ExactHookCatalog.aicrSpecs()) {
+        for (HookSpec spec : specs) {
             if (!install(spec)) {
                 missing.add(spec);
             }
         }
         ModernXposed.log(TAG + ": exact hooks=" + planner.registeredCount()
                 + ", covered policies=" + successfulPolicies.size());
-        long aicrHookCount = ExactHookCatalog.aicrSpecs().stream()
-                .filter(spec -> spec.className().startsWith("com.xiaomi.aicr."))
+        long aicrHookCount = specs.stream()
+                .filter(spec -> !spec.className().startsWith("android."))
                 .filter(planner::isRegistered)
                 .count();
         Set<String> registeredIds = new HashSet<>();
         EnumMap<com.wayne.hyperaicrbypass.config.Policy, Integer> policyCounts =
                 new EnumMap<>(com.wayne.hyperaicrbypass.config.Policy.class);
-        for (HookSpec spec : ExactHookCatalog.aicrSpecs()) {
+        for (HookSpec spec : specs) {
             if (planner.isRegistered(spec)) {
                 registeredIds.add(spec.id());
                 policyCounts.merge(spec.policy(), 1, Integer::sum);

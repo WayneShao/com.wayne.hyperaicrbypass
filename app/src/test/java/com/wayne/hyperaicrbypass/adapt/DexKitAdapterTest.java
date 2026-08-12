@@ -6,6 +6,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.wayne.hyperaicrbypass.config.Policy;
 import com.wayne.hyperaicrbypass.hook.HookBehavior;
+import com.wayne.hyperaicrbypass.hook.AicrVersionBranch;
 import com.wayne.hyperaicrbypass.hook.PowerSaveHookSpec;
 
 import org.junit.Test;
@@ -72,5 +73,27 @@ public class DexKitAdapterTest {
         assertEquals("boolean", stop.returnType());
         assertEquals(List.of(), stop.parameterTypes());
         assertTrue(stop.requiredAnchors().contains("getNeedStop canStop:"));
+    }
+
+    @Test
+    public void semanticCatalogUsesBranchSpecificStaticAndSignatureShapes() {
+        SemanticHookSpec v3Power = SemanticHookCatalog.specs(AicrVersionBranch.V3).stream()
+                .filter(spec -> spec.policy() == Policy.POWER)
+                .findFirst().orElseThrow();
+        SemanticHookSpec v4Power = SemanticHookCatalog.specs(AicrVersionBranch.V4).stream()
+                .filter(spec -> spec.policy() == Policy.POWER)
+                .findFirst().orElseThrow();
+        SemanticHookSpec v3Overload = SemanticHookCatalog.specs(AicrVersionBranch.V3).stream()
+                .filter(spec -> spec.policy() == Policy.OVERLOAD)
+                .findFirst().orElseThrow();
+        SemanticHookSpec v4Overload = SemanticHookCatalog.specs(AicrVersionBranch.V4).stream()
+                .filter(spec -> spec.policy() == Policy.OVERLOAD)
+                .findFirst().orElseThrow();
+
+        assertTrue(v3Power.isStatic());
+        assertFalse(v4Power.isStatic());
+        assertEquals(List.of("android.content.Context"), v3Overload.parameterTypes());
+        assertEquals(List.of("android.content.Context", "int"),
+                v4Overload.parameterTypes());
     }
 }
