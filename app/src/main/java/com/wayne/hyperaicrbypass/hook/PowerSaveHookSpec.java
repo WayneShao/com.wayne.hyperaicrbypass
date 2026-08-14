@@ -61,6 +61,29 @@ public record PowerSaveHookSpec(
                     false
             )
     );
+    private static final List<PowerSaveHookSpec> VERSION_4_COMPACT_CATALOG = List.of(
+            new PowerSaveHookSpec(
+                    Boundary.START,
+                    "qz7",
+                    "d",
+                    "boolean",
+                    List.of("int"),
+                    Set.of("RunningStatus.checkCanStart", "no cloud start config"),
+                    false,
+                    true
+            ),
+            new PowerSaveHookSpec(
+                    Boundary.STOP,
+                    "qz7",
+                    "r",
+                    "boolean",
+                    List.of(),
+                    Set.of("RunningStatus.getNeedStop", "getNeedStop canStop:",
+                            "running status -> RUNNING_LEVEL_STOP(0)"),
+                    true,
+                    false
+            )
+    );
 
     public PowerSaveHookSpec {
         Objects.requireNonNull(boundary);
@@ -85,6 +108,15 @@ public record PowerSaveHookSpec(
                 result.addAll(CATALOG);
                 yield List.copyOf(result);
             }
+        };
+    }
+
+    public static List<PowerSaveHookSpec> catalog(AicrRuntimeLayout layout) {
+        return switch (layout) {
+            case V3_OBFUSCATED -> VERSION_3_63_CATALOG;
+            case V4_READABLE -> CATALOG;
+            case V4_COMPACT -> VERSION_4_COMPACT_CATALOG;
+            case UNKNOWN -> List.of();
         };
     }
 

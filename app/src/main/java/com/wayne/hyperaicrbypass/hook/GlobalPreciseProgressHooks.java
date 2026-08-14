@@ -37,32 +37,51 @@ public final class GlobalPreciseProgressHooks {
     private final Context context;
     private final ClassLoader classLoader;
     private final ConfigClient configClient;
-    private final AicrVersionBranch versionBranch;
+    private final AicrRuntimeLayout layout;
     private final GlobalProgressRequestCollector collector =
             new GlobalProgressRequestCollector();
     private final AtomicReference<GlobalProgressSnapshot> latest =
             new AtomicReference<>();
     private volatile Set<String> installedPointIds = Set.of();
+    private final Set<String> registeredPointIds = new LinkedHashSet<>();
     private Object runningStatus;
+    private String progressMonitorOwner;
 
     public GlobalPreciseProgressHooks(Context context, ConfigClient configClient) {
+        this(context, configClient, AicrRuntimeLayout.detect(
+                AicrPackageVersion.branch(context), context.getClassLoader()));
+    }
+
+    public GlobalPreciseProgressHooks(
+            Context context,
+            ConfigClient configClient,
+            AicrRuntimeLayout layout
+    ) {
         this.context = context;
         this.classLoader = context.getClassLoader();
         this.configClient = configClient;
-        this.versionBranch = AicrPackageVersion.branch(context);
+        this.layout = layout;
     }
 
-    public int install() {
+    public synchronized int install() {
         installedPointIds = Set.of();
         Set<String> installed = new LinkedHashSet<>();
         List<GlobalProgressHookCatalog.Point> missing = new ArrayList<>();
         try {
-            String runningStatusClass = versionBranch == AicrVersionBranch.V3
-                    ? "u16" : "com.xiaomi.aicr.searchpro.monitor.RunningStatus";
+            String runningStatusClass = switch (layout) {
+                case V3_OBFUSCATED -> "u16";
+                case V4_READABLE -> "com.xiaomi.aicr.searchpro.monitor.RunningStatus";
+                case V4_COMPACT -> "qz7";
+                case UNKNOWN -> throw new ClassNotFoundException("Unknown AICR layout");
+            };
             runningStatus = ReflectionHelpers.getStaticObjectField(
                     find(runningStatusClass), "INSTANCE");
             for (GlobalProgressHookCatalog.Point point
-                    : GlobalProgressHookCatalog.points(versionBranch)) {
+                    : GlobalProgressHookCatalog.points(layout)) {
+                if (!requiresRegistration(registeredPointIds, point.id())) {
+                    installed.add(point.id());
+                    continue;
+                }
                 if (installExact(point)) {
                     installed.add(point.id());
                 } else {
@@ -76,7 +95,7 @@ public final class GlobalPreciseProgressHooks {
             ModernXposed.log(TAG + ": global precise setup failed -> " + error);
         }
         installedPointIds = Set.copyOf(installed);
-        int requiredHooks = GlobalProgressHookCatalog.points(versionBranch).size();
+        int requiredHooks = GlobalProgressHookCatalog.points(layout).size();
         ModernXposed.log(TAG + ": global precise hooks=" + installed.size() + "/"
                 + requiredHooks + " direct="
                 + ready(GlobalProgressBranch.MIGRATED_DIRECT_AI)
@@ -96,7 +115,8 @@ public final class GlobalPreciseProgressHooks {
                             && param.args[1] instanceof Boolean cache) {
                         param.setObjectExtra("global-index",
                                 collector.beginIndex(scope, cache));
-                        if (versionBranch == AicrVersionBranch.V3) {
+                        if (layout == AicrRuntimeLayout.V3_OBFUSCATED
+                                || layout == AicrRuntimeLayout.V4_COMPACT) {
                             collector.markMigratedDirect();
                         }
                     }
@@ -484,6 +504,8 @@ public final class GlobalPreciseProgressHooks {
                 throw new NoSuchMethodException("Return type mismatch");
             }
             ModernXposed.hookMethod(method, callback(point.id()));
+            rememberProgressOwner(point, method);
+            registeredPointIds.add(point.id());
             ModernXposed.log(TAG + ": global precise exact -> " + point.id());
             return true;
         } catch (Throwable error) {
@@ -506,6 +528,8 @@ public final class GlobalPreciseProgressHooks {
                 }
                 try {
                     ModernXposed.hookMethod(candidate, callback(point.id()));
+                    rememberProgressOwner(point, candidate);
+                    registeredPointIds.add(point.id());
                     installed.add(point.id());
                     ModernXposed.log(TAG + ": global precise semantic -> "
                             + descriptor(candidate));
@@ -527,8 +551,12 @@ public final class GlobalPreciseProgressHooks {
     ) {
         try {
             MethodMatcher matcher = MethodMatcher.create()
-                    .returnType(point.returnType())
-                    .paramTypes(point.parameterTypes());
+                    .returnType(point.returnType());
+            boolean flexibleFunction3 = GlobalProgressHookCatalog
+                    .usesAssignableFunction3(layout, point);
+            if (!flexibleFunction3) {
+                matcher.paramTypes(point.parameterTypes());
+            }
             if (!point.requiredAnchors().isEmpty()) {
                 matcher.usingStrings(point.requiredAnchors());
             }
@@ -541,7 +569,13 @@ public final class GlobalPreciseProgressHooks {
                     continue;
                 }
                 Method method = data.getMethodInstance(classLoader);
-                if (matchesShape(method, point)) {
+                if (SemanticMethodShape.matches(
+                        method,
+                        point.returnType(),
+                        point.parameterTypes(),
+                        point.isStatic(),
+                        flexibleFunction3
+                )) {
                     candidates.add(method);
                 }
             }
@@ -568,26 +602,6 @@ public final class GlobalPreciseProgressHooks {
             case "setting-display" -> displayCallback();
             default -> throw new IllegalArgumentException("Unknown global hook " + id);
         };
-    }
-
-    private boolean matchesShape(
-            Method method,
-            GlobalProgressHookCatalog.Point point
-    ) {
-        if (!method.getReturnType().getName().equals(point.returnType())
-                || Modifier.isStatic(method.getModifiers()) != point.isStatic()) {
-            return false;
-        }
-        Class<?>[] parameters = method.getParameterTypes();
-        if (parameters.length != point.parameterTypes().size()) {
-            return false;
-        }
-        for (int index = 0; index < parameters.length; index++) {
-            if (!parameters[index].getName().equals(point.parameterTypes().get(index))) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private Class<?>[] resolveTypes(List<String> names) throws ClassNotFoundException {
@@ -623,18 +637,48 @@ public final class GlobalPreciseProgressHooks {
 
     private boolean ready(GlobalProgressBranch branch) {
         return installedPointIds.containsAll(
-                GlobalProgressHookCatalog.requiredPointIds(versionBranch, branch));
+                GlobalProgressHookCatalog.requiredPointIds(layout, branch));
     }
 
-    private static boolean expectedOwner(
+    private boolean expectedOwner(
             GlobalProgressHookCatalog.Point point,
             String className
     ) {
-        return point.className().equals(className);
+        return matchesExpectedOwner(point, className, progressMonitorOwner, layout);
+    }
+
+    static boolean matchesExpectedOwner(
+            GlobalProgressHookCatalog.Point point,
+            String className,
+            String discoveredProgressOwner,
+            AicrRuntimeLayout layout
+    ) {
+        if (point.id().equals("outgoing-bridge") && discoveredProgressOwner != null) {
+            return discoveredProgressOwner.equals(className);
+        }
+        return point.className().equals(className)
+                || SemanticHooks.isExpectedOwner(layout, className);
+    }
+
+    static boolean requiresRegistration(Set<String> registeredPointIds, String pointId) {
+        return !registeredPointIds.contains(pointId);
+    }
+
+    private void rememberProgressOwner(
+            GlobalProgressHookCatalog.Point point,
+            Method method
+    ) {
+        if (Set.of(
+                "index", "migrated", "unmigrated", "local-scope",
+                "local-calculator", "outgoing-bridge"
+        ).contains(point.id())) {
+            progressMonitorOwner = method.getDeclaringClass().getName();
+        }
     }
 
     private Bundle displayBundle(ModernHook.MethodHookParam param) {
-        int index = versionBranch == AicrVersionBranch.V3 ? 1 : 0;
+        int index = layout == AicrRuntimeLayout.V3_OBFUSCATED
+                || layout == AicrRuntimeLayout.V4_COMPACT ? 1 : 0;
         return param.args.length > index && param.args[index] instanceof Bundle bundle
                 ? bundle : null;
     }
@@ -647,7 +691,7 @@ public final class GlobalPreciseProgressHooks {
     }
 
     private long runningStartTime() {
-        if (versionBranch == AicrVersionBranch.V3) {
+        if (layout == AicrRuntimeLayout.V3_OBFUSCATED) {
             try {
                 Method method = find("u16").getDeclaredMethod("w");
                 method.setAccessible(true);
@@ -655,6 +699,17 @@ public final class GlobalPreciseProgressHooks {
                 return result instanceof Long value ? value : -1L;
             } catch (Throwable error) {
                 throw new IllegalStateException("Cannot read V3 running start time", error);
+            }
+        }
+        if (layout == AicrRuntimeLayout.V4_COMPACT) {
+            try {
+                Method method = find("qz7").getDeclaredMethod("x");
+                method.setAccessible(true);
+                Object result = method.invoke(null);
+                return result instanceof Long value ? value : -1L;
+            } catch (Throwable error) {
+                throw new IllegalStateException(
+                        "Cannot read compact V4 running start time", error);
             }
         }
         Object result = ReflectionHelpers.callMethod(runningStatus, "getRunningStartTime");

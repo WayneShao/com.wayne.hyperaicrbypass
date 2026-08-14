@@ -30,12 +30,7 @@ public enum PreciseProgressCoverage {
             return true;
         }
         if (!currentKey.equals(incomingKey)) {
-            if (incomingKey.versionCode() == currentKey.versionCode()
-                    && incomingKey.lastUpdateTime() == currentKey.lastUpdateTime()
-                    && incomingKey.schemaRevision() == currentKey.schemaRevision()) {
-                return incomingKey.rescanGeneration() > currentKey.rescanGeneration();
-            }
-            return incomingKey.lastUpdateTime() > currentKey.lastUpdateTime();
+            return incomingKey.isNewerThan(currentKey);
         }
         if (incomingCount != currentCount) {
             return incomingCount > currentCount;

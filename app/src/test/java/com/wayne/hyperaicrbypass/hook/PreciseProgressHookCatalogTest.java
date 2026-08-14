@@ -23,6 +23,70 @@ public final class PreciseProgressHookCatalogTest {
     }
 
     @Test
+    public void compactV4CatalogTracksR8ProgressOwnersAndShapes() {
+        List<PreciseProgressHookCatalog.Point> precise =
+                PreciseProgressHookCatalog.points(AicrRuntimeLayout.V4_COMPACT);
+        List<GlobalProgressHookCatalog.Point> global =
+                GlobalProgressHookCatalog.points(AicrRuntimeLayout.V4_COMPACT);
+
+        assertEquals(List.of("ij3", "ac7", "qz7",
+                        "com.xiaomi.aicr.aisearch.progress.AISearchProgressActivity"),
+                precise.stream().map(PreciseProgressHookCatalog.Point::className).toList());
+        assertEquals(8, global.size());
+        assertTrue(global.stream().anyMatch(point ->
+                point.id().equals("local-calculator")
+                        && point.className().equals("ac7")
+                        && point.isStatic()));
+        assertTrue(global.stream().anyMatch(point ->
+                point.id().equals("gallery-calculator")
+                        && point.className().equals("ij3")
+                        && point.parameterTypes().size() == 6));
+        assertTrue(global.stream().anyMatch(point ->
+                point.id().equals("setting-display")
+                        && point.parameterTypes().size() == 2
+                        && point.isStatic()));
+        assertTrue(PreciseProgressHookCatalog.usesAssignableFunction3(
+                AicrRuntimeLayout.V4_COMPACT,
+                precise.stream()
+                        .filter(point -> point.kind()
+                                == PreciseProgressHookCatalog.Kind.TRANSPORT)
+                        .findFirst().orElseThrow()
+        ));
+        assertTrue(GlobalProgressHookCatalog.usesAssignableFunction3(
+                AicrRuntimeLayout.V4_COMPACT,
+                global.stream().filter(point -> point.id().equals("index"))
+                        .findFirst().orElseThrow()
+        ));
+    }
+
+    @Test
+    public void discoverySchemaChangesForTheCompactRuntimeLayout() {
+        assertEquals(4, ExecutionCoverageReporter.SCHEMA_REVISION);
+    }
+
+    @Test
+    public void unanchoredOutgoingBridgeStaysOnDiscoveredProgressOwner() {
+        GlobalProgressHookCatalog.Point outgoing =
+                GlobalProgressHookCatalog.points(AicrRuntimeLayout.V4_COMPACT).stream()
+                        .filter(point -> point.id().equals("outgoing-bridge"))
+                        .findFirst().orElseThrow();
+
+        assertTrue(GlobalPreciseProgressHooks.matchesExpectedOwner(
+                outgoing, "zz1", "zz1", AicrRuntimeLayout.V4_COMPACT));
+        assertFalse(GlobalPreciseProgressHooks.matchesExpectedOwner(
+                outgoing, "third.party.Callbacks", "zz1",
+                AicrRuntimeLayout.V4_COMPACT));
+    }
+
+    @Test
+    public void globalProgressRescanDoesNotRegisterAnInstalledPointAgain() {
+        assertTrue(GlobalPreciseProgressHooks.requiresRegistration(
+                Set.of(), "index"));
+        assertFalse(GlobalPreciseProgressHooks.requiresRegistration(
+                Set.of("index"), "index"));
+    }
+
+    @Test
     public void definesExactCalculatorTransportNotificationAndDisplayShapes() {
         List<PreciseProgressHookCatalog.Point> points =
                 PreciseProgressHookCatalog.points();

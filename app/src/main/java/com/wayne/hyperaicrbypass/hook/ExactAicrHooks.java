@@ -28,9 +28,21 @@ public final class ExactAicrHooks {
             ConfigClient configClient,
             AicrVersionBranch branch
     ) {
+        this(classLoader, configClient, switch (branch) {
+            case V3 -> AicrRuntimeLayout.V3_OBFUSCATED;
+            case V4 -> AicrRuntimeLayout.V4_READABLE;
+            case UNKNOWN -> AicrRuntimeLayout.UNKNOWN;
+        });
+    }
+
+    public ExactAicrHooks(
+            ClassLoader classLoader,
+            ConfigClient configClient,
+            AicrRuntimeLayout layout
+    ) {
         this.classLoader = classLoader;
         this.configClient = configClient;
-        this.specs = ExactHookCatalog.aicrSpecs(branch);
+        this.specs = ExactHookCatalog.aicrSpecs(layout);
     }
 
     public InstallResult install() {
@@ -100,6 +112,8 @@ public final class ExactAicrHooks {
                     case RESULT_ZERO_LONG -> param.setResult(0L);
                     case ARGUMENT_ZERO_BOOLEAN -> param.args[0] = false;
                     case ARGUMENT_NOW_LONG -> param.args[0] = System.currentTimeMillis();
+                    case ARGUMENT_LAST_NOW_LONG ->
+                            param.args[param.args.length - 1] = System.currentTimeMillis();
                 }
             }
         };

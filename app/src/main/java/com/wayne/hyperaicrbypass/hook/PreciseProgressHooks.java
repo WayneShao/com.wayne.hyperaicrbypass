@@ -35,24 +35,35 @@ public final class PreciseProgressHooks {
     private final Context context;
     private final ClassLoader classLoader;
     private final ConfigClient configClient;
-    private final AicrVersionBranch branch;
+    private final AicrRuntimeLayout layout;
     private final AtomicReference<PreciseProgressSnapshot> latest = new AtomicReference<>();
     private final Set<PreciseProgressHookCatalog.Kind> installedKinds =
             java.util.EnumSet.noneOf(PreciseProgressHookCatalog.Kind.class);
     private volatile boolean notificationChainReady;
 
     public PreciseProgressHooks(Context context, ConfigClient configClient) {
+        this(context, configClient, AicrRuntimeLayout.detect(
+                AicrPackageVersion.branch(context), context.getClassLoader()));
+    }
+
+    public PreciseProgressHooks(
+            Context context,
+            ConfigClient configClient,
+            AicrRuntimeLayout layout
+    ) {
         this.context = context;
         this.classLoader = context.getClassLoader();
         this.configClient = configClient;
-        this.branch = AicrPackageVersion.branch(context);
+        this.layout = layout;
     }
 
     public int install() {
         notificationChainReady = false;
         int installed = 0;
         List<PreciseProgressHookCatalog.Point> missing = new ArrayList<>();
-        for (PreciseProgressHookCatalog.Point point : PreciseProgressHookCatalog.points()) {
+        List<PreciseProgressHookCatalog.Point> points =
+                PreciseProgressHookCatalog.points(layout);
+        for (PreciseProgressHookCatalog.Point point : points) {
             if (installedKinds.contains(point.kind())) {
                 installed++;
                 continue;
@@ -67,9 +78,9 @@ public final class PreciseProgressHooks {
         if (!missing.isEmpty()) {
             installed += installSemanticFallbacks(missing);
         }
-        notificationChainReady = installed == PreciseProgressHookCatalog.points().size();
+        notificationChainReady = installed == points.size();
         ModernXposed.log(TAG + ": precise progress hooks=" + installed + "/"
-                + PreciseProgressHookCatalog.points().size());
+                + points.size());
         return installed;
     }
 
@@ -98,7 +109,7 @@ public final class PreciseProgressHooks {
             for (PreciseProgressHookCatalog.Point point : points) {
                 Method candidate = findUniqueCandidate(bridge, point);
                 if (candidate == null) {
-                    candidate = PreciseProgressHookCatalog.branchFallbacks().stream()
+                    candidate = PreciseProgressHookCatalog.branchFallbacks(layout).stream()
                             .filter(fallback -> fallback.kind() == point.kind())
                             .map(fallback -> findUniqueCandidate(bridge, fallback))
                             .filter(java.util.Objects::nonNull)
@@ -131,18 +142,28 @@ public final class PreciseProgressHooks {
         try {
             SemanticQuerySpec spec = point.semanticQuery();
             MethodMatcher matcher = MethodMatcher.create()
-                    .returnType(spec.returnType())
-                    .paramTypes(spec.parameterTypes())
-                    .usingStrings(spec.requiredAnchors());
+                    .returnType(spec.returnType());
+            boolean flexibleFunction3 = PreciseProgressHookCatalog
+                    .usesAssignableFunction3(layout, point);
+            if (!flexibleFunction3) {
+                matcher.paramTypes(spec.parameterTypes());
+            }
+            matcher.usingStrings(spec.requiredAnchors());
             FindMethod query = FindMethod.create().matcher(matcher);
             Set<Method> candidates = new LinkedHashSet<>();
             for (MethodData data : bridge.findMethod(query)) {
                 if (Modifier.isStatic(data.getModifiers()) != spec.isStatic()
-                        || !SemanticHooks.isExpectedOwner(branch, data.getClassName())) {
+                        || !SemanticHooks.isExpectedOwner(layout, data.getClassName())) {
                     continue;
                 }
                 Method method = data.getMethodInstance(classLoader);
-                if (matchesShape(method, spec)) {
+                if (SemanticMethodShape.matches(
+                        method,
+                        spec.returnType(),
+                        spec.parameterTypes(),
+                        spec.isStatic(),
+                        flexibleFunction3
+                )) {
                     candidates.add(method);
                 }
             }
@@ -293,23 +314,6 @@ public final class PreciseProgressHooks {
         return value instanceof Integer integer
                 ? OptionalInt.of(integer)
                 : OptionalInt.empty();
-    }
-
-    private boolean matchesShape(Method method, SemanticQuerySpec spec) {
-        if (!method.getReturnType().getName().equals(spec.returnType())
-                || Modifier.isStatic(method.getModifiers()) != spec.isStatic()) {
-            return false;
-        }
-        Class<?>[] parameterTypes = method.getParameterTypes();
-        if (parameterTypes.length != spec.parameterTypes().size()) {
-            return false;
-        }
-        for (int index = 0; index < parameterTypes.length; index++) {
-            if (!parameterTypes[index].getName().equals(spec.parameterTypes().get(index))) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private Class<?>[] resolveTypes(List<String> names) throws ClassNotFoundException {

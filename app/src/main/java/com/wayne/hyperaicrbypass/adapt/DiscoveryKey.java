@@ -6,6 +6,25 @@ public record DiscoveryKey(
         int schemaRevision,
         long rescanGeneration
 ) {
+    public boolean isNewerThan(DiscoveryKey other) {
+        if (other == null) {
+            return true;
+        }
+        int updateOrder = Long.compare(lastUpdateTime, other.lastUpdateTime);
+        if (updateOrder != 0) {
+            return updateOrder > 0;
+        }
+        int versionOrder = Long.compare(versionCode, other.versionCode);
+        if (versionOrder != 0) {
+            return versionOrder > 0;
+        }
+        int schemaOrder = Integer.compare(schemaRevision, other.schemaRevision);
+        if (schemaOrder != 0) {
+            return schemaOrder > 0;
+        }
+        return rescanGeneration > other.rescanGeneration;
+    }
+
     public String stableValue() {
         return versionCode + ":" + lastUpdateTime + ":" + schemaRevision + ":" + rescanGeneration;
     }

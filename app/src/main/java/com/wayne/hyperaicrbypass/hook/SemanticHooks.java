@@ -33,6 +33,7 @@ public final class SemanticHooks {
     private final ClassLoader classLoader;
     private final ConfigClient configClient;
     private final AicrVersionBranch branch;
+    private final AicrRuntimeLayout layout;
     private final Set<String> installedIds;
     private final EnumMap<com.wayne.hyperaicrbypass.config.Policy, Integer> policyCounts =
             new EnumMap<>(com.wayne.hyperaicrbypass.config.Policy.class);
@@ -43,11 +44,25 @@ public final class SemanticHooks {
             Set<String> registeredIds,
             AicrVersionBranch branch
     ) {
+        this(context, configClient, registeredIds, switch (branch) {
+            case V3 -> AicrRuntimeLayout.V3_OBFUSCATED;
+            case V4 -> AicrRuntimeLayout.V4_READABLE;
+            case UNKNOWN -> AicrRuntimeLayout.UNKNOWN;
+        });
+    }
+
+    public SemanticHooks(
+            Context context,
+            ConfigClient configClient,
+            Set<String> registeredIds,
+            AicrRuntimeLayout layout
+    ) {
         this.context = context;
         this.classLoader = context.getClassLoader();
         this.configClient = configClient;
         this.installedIds = new HashSet<>(registeredIds);
-        this.branch = branch;
+        this.layout = layout;
+        this.branch = layout.branch();
     }
 
     public synchronized int install(List<HookSpec> missingExact) {
@@ -57,7 +72,7 @@ public final class SemanticHooks {
         }
         int successes = 0;
         try (DexKitBridge bridge = DexKitBridgeFactory.create(context)) {
-            for (SemanticHookSpec semantic : semanticSpecsFor(missingExact, branch)) {
+            for (SemanticHookSpec semantic : semanticSpecsFor(missingExact, layout)) {
                 for (Method method : findCandidates(bridge, semantic)) {
                     String id = descriptor(method);
                     if (!installedIds.add(id)) {
@@ -96,7 +111,7 @@ public final class SemanticHooks {
             List<MethodData> data = new ArrayList<>(bridge.findMethod(query));
             List<MethodData> shaped = data.stream()
                     .filter(candidate -> Modifier.isStatic(candidate.getModifiers()) == spec.isStatic())
-                    .filter(candidate -> isExpectedOwner(branch, candidate.getClassName()))
+                    .filter(candidate -> isExpectedOwner(layout, candidate.getClassName()))
                     .collect(Collectors.toList());
             List<MethodData> selected = selectUnambiguous(spec, shaped);
             LinkedHashSet<Method> methods = new LinkedHashSet<>();
@@ -149,6 +164,20 @@ public final class SemanticHooks {
         };
     }
 
+    static boolean isExpectedOwner(AicrRuntimeLayout layout, String className) {
+        if (className == null) {
+            return false;
+        }
+        return switch (layout) {
+            case V3_OBFUSCATED -> !className.contains(".")
+                    || className.startsWith("com.xiaomi.aicr.aisearch.");
+            case V4_READABLE -> className.startsWith("com.xiaomi.aicr.");
+            case V4_COMPACT -> !className.contains(".")
+                    || className.startsWith("com.xiaomi.aicr.");
+            case UNKNOWN -> className.startsWith("com.xiaomi.aicr.");
+        };
+    }
+
     private ModernHook callback(SemanticHookSpec spec) {
         return new ModernHook() {
             @Override
@@ -164,6 +193,8 @@ public final class SemanticHooks {
                     case RESULT_HUNDRED_INT -> param.setResult(100);
                     case RESULT_ZERO_LONG -> param.setResult(0L);
                     case ARGUMENT_NOW_LONG -> param.args[0] = System.currentTimeMillis();
+                    case ARGUMENT_LAST_NOW_LONG ->
+                            param.args[param.args.length - 1] = System.currentTimeMillis();
                     case ARGUMENT_ZERO_BOOLEAN -> param.args[0] = false;
                 }
             }
@@ -190,6 +221,23 @@ public final class SemanticHooks {
                         != com.wayne.hyperaicrbypass.config.Policy.TASK_CONSTRAINTS)
                 .collect(Collectors.toSet());
         return SemanticHookCatalog.specs(branch).stream()
+                .filter(spec -> missingPolicies.contains(spec.policy()))
+                .collect(Collectors.toList());
+    }
+
+    static List<SemanticHookSpec> semanticSpecsFor(
+            List<HookSpec> missingExact,
+            AicrRuntimeLayout layout
+    ) {
+        if (layout == AicrRuntimeLayout.UNKNOWN) {
+            return List.of();
+        }
+        Set<com.wayne.hyperaicrbypass.config.Policy> missingPolicies = missingExact.stream()
+                .map(HookSpec::policy)
+                .filter(policy -> policy
+                        != com.wayne.hyperaicrbypass.config.Policy.TASK_CONSTRAINTS)
+                .collect(Collectors.toSet());
+        return SemanticHookCatalog.specs(layout).stream()
                 .filter(spec -> missingPolicies.contains(spec.policy()))
                 .collect(Collectors.toList());
     }

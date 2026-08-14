@@ -21,9 +21,17 @@ public final class PolicyCoverageReporter {
     private final Map<Policy, Integer> expectedCounts;
 
     public PolicyCoverageReporter(Context context, AicrVersionBranch branch) {
+        this(context, switch (branch) {
+            case V3 -> AicrRuntimeLayout.V3_OBFUSCATED;
+            case V4 -> AicrRuntimeLayout.V4_READABLE;
+            case UNKNOWN -> AicrRuntimeLayout.UNKNOWN;
+        });
+    }
+
+    public PolicyCoverageReporter(Context context, AicrRuntimeLayout layout) {
         this.context = context;
         EnumMap<Policy, Integer> expected = new EnumMap<>(Policy.class);
-        for (HookSpec spec : ExactHookCatalog.aicrSpecs(branch)) {
+        for (HookSpec spec : ExactHookCatalog.aicrSpecs(layout)) {
             expected.merge(spec.policy(), 1, Integer::sum);
         }
         expectedCounts = Map.copyOf(expected);

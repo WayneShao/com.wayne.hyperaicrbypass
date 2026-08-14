@@ -8,7 +8,8 @@ public enum HookBehavior {
     RESULT_HUNDRED_INT(true),
     RESULT_ZERO_LONG(true),
     ARGUMENT_ZERO_BOOLEAN(false),
-    ARGUMENT_NOW_LONG(false);
+    ARGUMENT_NOW_LONG(false),
+    ARGUMENT_LAST_NOW_LONG(false);
 
     private final boolean changesResult;
 

@@ -76,6 +76,50 @@ public final class PreciseProgressHookCatalog {
                     Set.of("analyse_progress", "analyse_status")
             )
     );
+    private static final List<Point> V4_COMPACT_POINTS = List.of(
+            point(
+                    Kind.CAPTURE,
+                    "ij3",
+                    "a",
+                    "int",
+                    List.of("int", "int", "int", "int", "int", "int"),
+                    true,
+                    Set.of("GalleryProgressMonitor.calculateProgress", " base：",
+                            "  numerator:")
+            ),
+            point(
+                    Kind.TRANSPORT,
+                    "ac7",
+                    "g",
+                    "android.os.Bundle",
+                    List.of("int", "boolean", "rb8"),
+                    false,
+                    Set.of("ProgressMonitor.getMigratedProgress", "analyse_progress",
+                            "analyse_status")
+            ),
+            point(
+                    Kind.NOTIFY,
+                    "qz7",
+                    "J",
+                    "void",
+                    List.of("int", "boolean"),
+                    false,
+                    Set.of("RunningStatus.sendProgressToActivity",
+                            "enter sendProgressToActivity scopes：")
+            ),
+            point(
+                    Kind.DISPLAY,
+                    "com.xiaomi.aicr.aisearch.progress.AISearchProgressActivity",
+                    "l",
+                    "void",
+                    List.of(
+                            "com.xiaomi.aicr.aisearch.progress.AISearchProgressActivity",
+                            "android.os.Bundle"
+                    ),
+                    true,
+                    Set.of("analyse_progress", "analyse_status")
+            )
+    );
 
     private PreciseProgressHookCatalog() {
     }
@@ -86,6 +130,19 @@ public final class PreciseProgressHookCatalog {
 
     public static List<Point> branchFallbacks() {
         return BRANCH_FALLBACKS;
+    }
+
+    public static List<Point> points(AicrRuntimeLayout layout) {
+        return layout == AicrRuntimeLayout.V4_COMPACT ? V4_COMPACT_POINTS : POINTS;
+    }
+
+    public static List<Point> branchFallbacks(AicrRuntimeLayout layout) {
+        return layout == AicrRuntimeLayout.V4_COMPACT ? List.of() : BRANCH_FALLBACKS;
+    }
+
+    static boolean usesAssignableFunction3(AicrRuntimeLayout layout, Point point) {
+        return layout == AicrRuntimeLayout.V4_COMPACT
+                && point.kind() == Kind.TRANSPORT;
     }
 
     private static Point point(

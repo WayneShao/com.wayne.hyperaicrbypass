@@ -102,7 +102,8 @@ public class HookDecisionTest {
             case RESULT_ONE_INT -> 0;
             case RESULT_HUNDRED_INT -> 1;
             case RESULT_ZERO_LONG -> 77L;
-            case ARGUMENT_ZERO_BOOLEAN, ARGUMENT_NOW_LONG -> throw new IllegalArgumentException();
+            case ARGUMENT_ZERO_BOOLEAN, ARGUMENT_NOW_LONG,
+                    ARGUMENT_LAST_NOW_LONG -> throw new IllegalArgumentException();
         };
     }
 }

@@ -26,23 +26,31 @@ public final class CopyWebsiteBrowserHooks {
 
     private final Context context;
     private final ClassLoader classLoader;
-    private final AicrVersionBranch branch;
+    private final AicrRuntimeLayout layout;
     private final BrowserConfigClient configClient;
     private final Set<String> installed = new HashSet<>();
 
     public CopyWebsiteBrowserHooks(Context context, AicrVersionBranch branch) {
+        this(context, switch (branch) {
+            case V3 -> AicrRuntimeLayout.V3_OBFUSCATED;
+            case V4 -> AicrRuntimeLayout.V4_READABLE;
+            case UNKNOWN -> AicrRuntimeLayout.UNKNOWN;
+        });
+    }
+
+    public CopyWebsiteBrowserHooks(Context context, AicrRuntimeLayout layout) {
         this.context = context;
         this.classLoader = context.getClassLoader();
-        this.branch = branch;
+        this.layout = layout;
         this.configClient = new BrowserConfigClient(context);
     }
 
     public synchronized InstallResult install() {
         int count = 0;
-        int expected = CopyWebsiteBrowserHookCatalog.forBranch(branch).size();
+        int expected = CopyWebsiteBrowserHookCatalog.forLayout(layout).size();
         try (DexKitBridge bridge = DexKitBridgeFactory.create(context)) {
             for (CopyWebsiteBrowserHookCatalog.Spec spec
-                    : CopyWebsiteBrowserHookCatalog.forBranch(branch)) {
+                    : CopyWebsiteBrowserHookCatalog.forLayout(layout)) {
                 Method method = findUnique(bridge, spec);
                 if (method != null && install(method, spec.kind())) {
                     count++;
@@ -52,7 +60,7 @@ public final class CopyWebsiteBrowserHooks {
             ModernXposed.log(TAG + ": browser discovery unavailable -> " + error);
         }
         ModernXposed.log(TAG + ": copy website browser hooks=" + count + "/" + expected
-                + " branch=" + branch);
+                + " layout=" + layout);
         return new InstallResult(count, expected);
     }
 
@@ -67,7 +75,7 @@ public final class CopyWebsiteBrowserHooks {
             ));
             List<Method> valid = new ArrayList<>();
             for (MethodData data : candidates) {
-                if (!CopyWebsiteBrowserHookCatalog.isExpectedOwner(branch, data.getClassName())
+                if (!CopyWebsiteBrowserHookCatalog.isExpectedOwner(layout, data.getClassName())
                         || !Modifier.isStatic(data.getModifiers())) {
                     continue;
                 }

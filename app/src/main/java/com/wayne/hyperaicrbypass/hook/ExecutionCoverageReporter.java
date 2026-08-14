@@ -10,7 +10,7 @@ import com.wayne.hyperaicrbypass.config.ConfigContract;
 import com.wayne.hyperaicrbypass.xposed.ModernXposed;
 
 public final class ExecutionCoverageReporter {
-    public static final int SCHEMA_REVISION = 3;
+    public static final int SCHEMA_REVISION = 4;
     private static final String TAG = "HyperAICRBypass";
 
     private final Context context;
@@ -20,7 +20,7 @@ public final class ExecutionCoverageReporter {
     }
 
     public DiscoveryKey reportPending(long rescanGeneration) {
-        DiscoveryKey key = discoveryKey(rescanGeneration);
+        DiscoveryKey key = currentKey(rescanGeneration);
         report(key, ExecutionCoverage.PENDING);
         return key;
     }
@@ -40,7 +40,7 @@ public final class ExecutionCoverageReporter {
         return coverage;
     }
 
-    private DiscoveryKey discoveryKey(long rescanGeneration) {
+    public DiscoveryKey currentKey(long rescanGeneration) {
         try {
             PackageInfo info = context.getPackageManager().getPackageInfo("com.xiaomi.aicr", 0);
             return new DiscoveryKey(

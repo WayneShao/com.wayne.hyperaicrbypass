@@ -42,6 +42,19 @@ public class AdaptationModelTest {
     }
 
     @Test
+    public void discoveryFreshnessBreaksEqualUpdateTimesByVersionSchemaAndGeneration() {
+        DiscoveryKey oldVersion = new DiscoveryKey(2030040006L, 1786517678966L, 3, 0);
+        DiscoveryKey newVersion = new DiscoveryKey(2030041120L, 1786517678966L, 4, 6);
+        DiscoveryKey newSchema = new DiscoveryKey(2030041120L, 1786517678966L, 5, 0);
+        DiscoveryKey newGeneration = new DiscoveryKey(2030041120L, 1786517678966L, 5, 1);
+
+        assertTrue(newVersion.isNewerThan(oldVersion));
+        assertTrue(newSchema.isNewerThan(newVersion));
+        assertTrue(newGeneration.isNewerThan(newSchema));
+        assertFalse(oldVersion.isNewerThan(newVersion));
+    }
+
+    @Test
     public void semanticCandidateMustMatchEveryShapeAndAnchorAndBeUnique() {
         SemanticQuerySpec spec = new SemanticQuerySpec(
                 Policy.TEMPERATURE,

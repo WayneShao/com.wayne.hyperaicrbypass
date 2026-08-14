@@ -27,19 +27,29 @@ public final class PowerSaveExecutionHooks {
     private final Context context;
     private final ClassLoader classLoader;
     private final ConfigClient configClient;
+    private final AicrRuntimeLayout layout;
     private final Set<String> installedMethods = new HashSet<>();
 
     public PowerSaveExecutionHooks(Context context, ConfigClient configClient) {
+        this(context, configClient, AicrRuntimeLayout.detect(
+                AicrPackageVersion.branch(context), context.getClassLoader()));
+    }
+
+    public PowerSaveExecutionHooks(
+            Context context,
+            ConfigClient configClient,
+            AicrRuntimeLayout layout
+    ) {
         this.context = context;
         this.classLoader = context.getClassLoader();
         this.configClient = configClient;
+        this.layout = layout;
     }
 
     public synchronized InstallResult install() {
-        AicrVersionBranch branch = AicrPackageVersion.branch(context);
         Set<String> covered = new HashSet<>();
         List<PowerSaveHookSpec> missing = new ArrayList<>();
-        for (PowerSaveHookSpec spec : PowerSaveHookSpec.catalog(branch)) {
+        for (PowerSaveHookSpec spec : PowerSaveHookSpec.catalog(layout)) {
             if (installExact(spec)) {
                 covered.add(spec.boundary().name());
             } else {
@@ -76,10 +86,6 @@ public final class PowerSaveExecutionHooks {
         return spec.allowStatic() == isStatic;
     }
 
-    private static AicrVersionBranch branchFor(PowerSaveHookSpec spec) {
-        return spec.className().contains(".") ? AicrVersionBranch.V4 : AicrVersionBranch.V3;
-    }
-
     private boolean installExact(PowerSaveHookSpec spec) {
         try {
             Class<?> owner = ReflectionHelpers.findClass(spec.className(), classLoader);
@@ -109,7 +115,7 @@ public final class PowerSaveExecutionHooks {
                             .matcher(matcher)
             ));
             candidates.removeIf(candidate ->
-                    !SemanticHooks.isExpectedOwner(branchFor(spec), candidate.getClassName())
+                    !SemanticHooks.isExpectedOwner(layout, candidate.getClassName())
                             || !matchesStaticShape(
                             spec, Modifier.isStatic(candidate.getModifiers())
                     ));

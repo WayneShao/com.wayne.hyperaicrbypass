@@ -72,6 +72,38 @@ public final class ExactHookCatalog {
             taskSpec("setRequiresBatteryNotLow"),
             taskSpec("setRequiresDeviceIdle")
     );
+    private static final List<HookSpec> AICR_4_COMPACT_SPECS = List.of(
+            spec("qz7", "D", "int", Policy.TEMPERATURE,
+                    HookBehavior.RESULT_ZERO_INT),
+            spec("qz7", "e", "boolean", Policy.TEMPERATURE,
+                    HookBehavior.RESULT_FALSE),
+            spec("qz7", "f", "boolean", List.of("int"), Policy.TEMPERATURE,
+                    HookBehavior.RESULT_FALSE),
+            spec("qz7", "i", "int", Policy.CHARGING,
+                    HookBehavior.RESULT_ONE_INT),
+            spec("qz7", "t", "int", Policy.POWER,
+                    HookBehavior.RESULT_HUNDRED_INT),
+            spec("qz7", "n", "int", Policy.SCREEN_IDLE,
+                    HookBehavior.RESULT_ZERO_INT),
+            spec("qz7", "l", "int", Policy.MIGRATION,
+                    HookBehavior.RESULT_ZERO_INT),
+            spec("qz7", "k", "int", Policy.DAILY_COUNT,
+                    HookBehavior.RESULT_ZERO_INT),
+            spec("h19", "b", "boolean", List.of("long"), Policy.DURATION,
+                    HookBehavior.ARGUMENT_NOW_LONG),
+            spec("cua", "d", "boolean", List.of(
+                            "com.hyperos.ai.aisearch.searchpro.monitor.RunLevel", "long"),
+                    Policy.DURATION, HookBehavior.ARGUMENT_LAST_NOW_LONG),
+            spec("qz7", "w", "long", Policy.RUN_GAP,
+                    HookBehavior.RESULT_ZERO_LONG),
+            spec("ym6", "a", "boolean", List.of("android.content.Context"),
+                    Policy.OVERLOAD, HookBehavior.RESULT_FALSE),
+            spec("k19", "i", "boolean", Policy.AI_UI_CAPABILITY,
+                    HookBehavior.RESULT_TRUE),
+            taskSpec("setRequiresCharging"),
+            taskSpec("setRequiresBatteryNotLow"),
+            taskSpec("setRequiresDeviceIdle")
+    );
     private static final List<HookSpec> FRAMEWORK_SPECS = List.of(
             taskSpec("setRequiresCharging"),
             taskSpec("setRequiresBatteryNotLow"),
@@ -95,6 +127,15 @@ public final class ExactHookCatalog {
         return switch (branch) {
             case V3 -> AICR_3_63_SPECS;
             case V4 -> AICR_4_SPECS;
+            case UNKNOWN -> FRAMEWORK_SPECS;
+        };
+    }
+
+    public static List<HookSpec> aicrSpecs(AicrRuntimeLayout layout) {
+        return switch (layout) {
+            case V3_OBFUSCATED -> AICR_3_63_SPECS;
+            case V4_READABLE -> AICR_4_SPECS;
+            case V4_COMPACT -> AICR_4_COMPACT_SPECS;
             case UNKNOWN -> FRAMEWORK_SPECS;
         };
     }

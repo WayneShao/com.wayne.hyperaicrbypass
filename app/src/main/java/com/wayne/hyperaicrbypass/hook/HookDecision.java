@@ -17,7 +17,8 @@ public final class HookDecision {
             case RESULT_ONE_INT -> 1;
             case RESULT_HUNDRED_INT -> 100;
             case RESULT_ZERO_LONG -> 0L;
-            case ARGUMENT_ZERO_BOOLEAN, ARGUMENT_NOW_LONG -> original;
+            case ARGUMENT_ZERO_BOOLEAN, ARGUMENT_NOW_LONG,
+                    ARGUMENT_LAST_NOW_LONG -> original;
         };
     }
 
@@ -41,6 +42,8 @@ public final class HookDecision {
         if (!config.shouldBypass(spec.policy())) {
             return original;
         }
-        return spec.behavior() == HookBehavior.ARGUMENT_NOW_LONG ? now : original;
+        return spec.behavior() == HookBehavior.ARGUMENT_NOW_LONG
+                || spec.behavior() == HookBehavior.ARGUMENT_LAST_NOW_LONG
+                ? now : original;
     }
 }

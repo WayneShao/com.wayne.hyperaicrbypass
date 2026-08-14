@@ -112,6 +112,34 @@ public final class GlobalProgressHookCatalog {
                             "android.os.Bundle"), true,
                     List.of("analyse_status", "download_paused"))
     );
+    private static final List<Point> V4_COMPACT_POINTS = List.of(
+            new Point("index", "ac7", "g", "android.os.Bundle",
+                    List.of("int", "boolean", "rb8"), false,
+                    List.of("ProgressMonitor.getMigratedProgress", "analyse_progress")),
+            new Point("local-scope", "ac7", "b", "int",
+                    List.of("int", "boolean", "boolean", "boolean"), false,
+                    List.of("scope 31 progress calculate begin")),
+            new Point("local-calculator", "ac7", "a", "float",
+                    List.of("int", "int", "int"), true,
+                    List.of("ProgressMonitor.calculateProgress", "oriCount = ")),
+            new Point("gallery-boundary", "ij3", "d", "int",
+                    List.of("boolean", FUNCTION3), true,
+                    List.of("GalleryProgressMonitor.getGalleryProgress",
+                            "getGalleryProgress progress:")),
+            new Point("gallery-calculator", "ij3", "a", "int",
+                    List.of("int", "int", "int", "int", "int", "int"), true,
+                    List.of("GalleryProgressMonitor.calculateProgress",
+                            "total:0, return 100", "progress = ")),
+            new Point("notification", "qz7", "J", "void",
+                    List.of("int", "boolean"), false,
+                    List.of("RunningStatus.sendProgressToActivity",
+                            "enter sendProgressToActivity scopes")),
+            new Point("outgoing-bridge", "ac7", "s", "void",
+                    List.of("int", "android.os.Bundle"), true, List.of()),
+            new Point("setting-display", SETTING_ACTIVITY, "l", "void",
+                    List.of(SETTING_ACTIVITY, "android.os.Bundle"), true,
+                    List.of("analyse_status", "analyse_progress", "download_paused"))
+    );
 
     private GlobalProgressHookCatalog() {
     }
@@ -122,6 +150,20 @@ public final class GlobalProgressHookCatalog {
 
     public static List<Point> points(AicrVersionBranch branch) {
         return branch == AicrVersionBranch.V3 ? V3_POINTS : POINTS;
+    }
+
+    public static List<Point> points(AicrRuntimeLayout layout) {
+        return switch (layout) {
+            case V3_OBFUSCATED -> V3_POINTS;
+            case V4_READABLE -> POINTS;
+            case V4_COMPACT -> V4_COMPACT_POINTS;
+            case UNKNOWN -> List.of();
+        };
+    }
+
+    static boolean usesAssignableFunction3(AicrRuntimeLayout layout, Point point) {
+        return layout == AicrRuntimeLayout.V4_COMPACT
+                && point.id().equals("index");
     }
 
     public static Set<String> requiredPointIds(GlobalProgressBranch branch) {
@@ -156,6 +198,24 @@ public final class GlobalProgressHookCatalog {
                 "gallery-calculator", "notification", "outgoing-bridge",
                 "setting-display"
         );
+    }
+
+    public static Set<String> requiredPointIds(
+            AicrRuntimeLayout layout,
+            GlobalProgressBranch branch
+    ) {
+        if (layout == AicrRuntimeLayout.V4_READABLE) {
+            return requiredPointIds(branch);
+        }
+        if (layout == AicrRuntimeLayout.V3_OBFUSCATED
+                || layout == AicrRuntimeLayout.V4_COMPACT) {
+            return Set.of(
+                    "index", "local-scope", "local-calculator", "gallery-boundary",
+                    "gallery-calculator", "notification", "outgoing-bridge",
+                    "setting-display"
+            );
+        }
+        return Set.of();
     }
 
     public record Point(

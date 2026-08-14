@@ -31,20 +31,6 @@ public enum ExecutionCoverage {
         if (incomingCoverage != PENDING) {
             return current.equals(incoming);
         }
-        int updateOrder = Long.compare(incoming.lastUpdateTime(), current.lastUpdateTime());
-        if (updateOrder != 0) {
-            return updateOrder > 0;
-        }
-        int versionOrder = Long.compare(incoming.versionCode(), current.versionCode());
-        if (versionOrder != 0) {
-            return versionOrder > 0;
-        }
-        int schemaOrder = Integer.compare(
-                incoming.schemaRevision(), current.schemaRevision()
-        );
-        if (schemaOrder != 0) {
-            return schemaOrder > 0;
-        }
-        return incoming.rescanGeneration() >= current.rescanGeneration();
+        return current.equals(incoming) || incoming.isNewerThan(current);
     }
 }

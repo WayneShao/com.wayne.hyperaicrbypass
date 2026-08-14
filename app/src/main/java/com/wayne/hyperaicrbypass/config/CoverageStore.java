@@ -44,15 +44,7 @@ final class CoverageStore {
     }
 
     private static boolean acceptPolicyKey(DiscoveryKey current, DiscoveryKey incoming) {
-        if (current.equals(incoming)) {
-            return true;
-        }
-        if (current.versionCode() == incoming.versionCode()
-                && current.lastUpdateTime() == incoming.lastUpdateTime()
-                && current.schemaRevision() == incoming.schemaRevision()) {
-            return incoming.rescanGeneration() > current.rescanGeneration();
-        }
-        return incoming.lastUpdateTime() > current.lastUpdateTime();
+        return current.equals(incoming) || incoming.isNewerThan(current);
     }
 
     synchronized Map<Policy, CoverageLayer> read() {

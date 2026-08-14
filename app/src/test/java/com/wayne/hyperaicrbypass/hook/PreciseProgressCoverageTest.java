@@ -35,4 +35,27 @@ public final class PreciseProgressCoverageTest {
                 current, PreciseProgressCoverage.AVAILABLE, 4,
                 current, PreciseProgressCoverage.PARTIAL, 2));
     }
+
+    @Test
+    public void newerAicrVersionWinsWhenProductUpdateTimestampIsUnchanged() {
+        DiscoveryKey oldVersion = new DiscoveryKey(2030040006L, 1786517678966L, 3, 0);
+        DiscoveryKey newVersion = new DiscoveryKey(2030041120L, 1786517678966L, 4, 6);
+
+        assertTrue(PreciseProgressCoverage.shouldAccept(
+                oldVersion,
+                PreciseProgressCoverage.AVAILABLE,
+                15,
+                newVersion,
+                PreciseProgressCoverage.AVAILABLE,
+                12
+        ));
+        assertFalse(PreciseProgressCoverage.shouldAccept(
+                newVersion,
+                PreciseProgressCoverage.AVAILABLE,
+                12,
+                oldVersion,
+                PreciseProgressCoverage.AVAILABLE,
+                15
+        ));
+    }
 }

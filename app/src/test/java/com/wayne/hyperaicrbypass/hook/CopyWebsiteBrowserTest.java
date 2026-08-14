@@ -52,4 +52,24 @@ public final class CopyWebsiteBrowserTest {
         assertFalse(CopyWebsiteBrowserHookCatalog.isExpectedOwner(
                 AicrVersionBranch.V4, "com.thirdparty.SmartPasswordUtils"));
     }
+
+    @Test
+    public void compactV4UsesTheTwoStageObfuscatedBrowserChain() {
+        List<CopyWebsiteBrowserHookCatalog.Spec> specs =
+                CopyWebsiteBrowserHookCatalog.forLayout(AicrRuntimeLayout.V4_COMPACT);
+
+        assertEquals(2, specs.size());
+        assertEquals(List.of(
+                        CopyWebsiteBrowserHookCatalog.Kind.RETURN_INTENT,
+                        CopyWebsiteBrowserHookCatalog.Kind.OPEN_URL
+                ), specs.stream().map(CopyWebsiteBrowserHookCatalog.Spec::kind).toList());
+        assertEquals(List.of("java.lang.String"), specs.get(0).parameterTypes());
+        assertEquals(List.of(
+                "com.xiaomi.aicr.copydirect.IntentActivity", "java.lang.String"
+        ), specs.get(1).parameterTypes());
+        assertTrue(CopyWebsiteBrowserHookCatalog.isExpectedOwner(
+                AicrRuntimeLayout.V4_COMPACT, "bw8"));
+        assertFalse(CopyWebsiteBrowserHookCatalog.isExpectedOwner(
+                AicrRuntimeLayout.V4_COMPACT, "com.thirdparty.SmartPasswordUtils"));
+    }
 }

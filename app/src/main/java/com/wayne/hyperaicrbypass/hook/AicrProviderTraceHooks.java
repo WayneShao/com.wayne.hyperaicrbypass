@@ -65,10 +65,17 @@ public final class AicrProviderTraceHooks {
     }
 
     public synchronized InstallResult install() {
+        return install(java.util.EnumSet.allOf(AicrProviderHookSpec.Role.class));
+    }
+
+    public synchronized InstallResult install(Set<AicrProviderHookSpec.Role> roles) {
         EnumMap<AicrProviderHookSpec.Role, Boolean> covered =
                 new EnumMap<>(AicrProviderHookSpec.Role.class);
         List<AicrProviderHookSpec> missing = new ArrayList<>();
         for (AicrProviderHookSpec spec : AicrProviderHookSpec.criticalCatalog()) {
+            if (!roles.contains(spec.role())) {
+                continue;
+            }
             if (installExact(spec)) {
                 covered.put(spec.role(), true);
             } else {
@@ -86,7 +93,8 @@ public final class AicrProviderTraceHooks {
                 ModernXposed.log(TAG + ": provider discovery unavailable -> " + error);
             }
         }
-        boolean nlsInstalled = installExact(
+        boolean nlsInstalled = roles.contains(AicrProviderHookSpec.Role.NLS)
+                && installExact(
                 NLS_PROVIDER, AicrProviderHookSpec.Role.NLS, "NLSCapabilityProvider"
         );
         InstallResult result = new InstallResult(

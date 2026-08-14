@@ -35,6 +35,14 @@ public final class CopyWebsiteBrowserHookCatalog {
         return branch == AicrVersionBranch.V3 ? V3 : V4;
     }
 
+    public static List<Spec> forLayout(AicrRuntimeLayout layout) {
+        return switch (layout) {
+            case V3_OBFUSCATED, V4_COMPACT -> V3;
+            case V4_READABLE -> V4;
+            case UNKNOWN -> List.of();
+        };
+    }
+
     public static boolean isExpectedOwner(AicrVersionBranch branch, String className) {
         if (className == null) {
             return false;
@@ -44,6 +52,19 @@ public final class CopyWebsiteBrowserHookCatalog {
             case V4 -> className.startsWith("com.xiaomi.aicr.copydirect.");
             case UNKNOWN -> !className.contains(".")
                     || className.startsWith("com.xiaomi.aicr.copydirect.");
+        };
+    }
+
+    public static boolean isExpectedOwner(AicrRuntimeLayout layout, String className) {
+        if (className == null) {
+            return false;
+        }
+        return switch (layout) {
+            case V3_OBFUSCATED -> !className.contains(".");
+            case V4_READABLE -> className.startsWith("com.xiaomi.aicr.copydirect.");
+            case V4_COMPACT -> !className.contains(".")
+                    || className.startsWith("com.xiaomi.aicr.copydirect.");
+            case UNKNOWN -> false;
         };
     }
 }

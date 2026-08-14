@@ -45,6 +45,26 @@ public final class AicrVersionCatalogTest {
     }
 
     @Test
+    public void version411CompactLayoutUsesConfirmedR8LeafMethods() {
+        List<HookSpec> specs = ExactHookCatalog.aicrSpecs(AicrRuntimeLayout.V4_COMPACT);
+
+        assertTrue(specs.stream().anyMatch(spec ->
+                spec.className().equals("qz7")
+                        && spec.methodName().equals("D")
+                        && spec.policy() == Policy.TEMPERATURE));
+        assertTrue(specs.stream().anyMatch(spec ->
+                spec.className().equals("cua")
+                        && spec.methodName().equals("d")
+                        && spec.parameterTypes().equals(List.of(
+                        "com.hyperos.ai.aisearch.searchpro.monitor.RunLevel", "long"))));
+        assertTrue(specs.stream().anyMatch(spec ->
+                spec.className().equals("k19")
+                        && spec.methodName().equals("i")
+                        && spec.policy() == Policy.AI_UI_CAPABILITY));
+        assertEquals(EnumSet.allOf(Policy.class), policies(specs));
+    }
+
+    @Test
     public void powerSaveCatalogSelectsBothVersionSpecificBoundaries() {
         List<PowerSaveHookSpec> legacy = PowerSaveHookSpec.catalog(AicrVersionBranch.V3);
         List<PowerSaveHookSpec> modern = PowerSaveHookSpec.catalog(AicrVersionBranch.V4);

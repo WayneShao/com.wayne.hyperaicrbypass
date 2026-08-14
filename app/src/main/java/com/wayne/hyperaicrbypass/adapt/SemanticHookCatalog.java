@@ -75,6 +75,44 @@ public final class SemanticHookCatalog {
                     List.of(), true, Set.of("StatusUtils.isSupportAISearchUIV2", "O1"),
                     RESULT_TRUE)
     );
+    private static final List<SemanticHookSpec> V4_COMPACT_SPECS = List.of(
+            spec(Policy.TEMPERATURE, "D", "int", List.of(), true,
+                    Set.of("RunningStatus.getTemperature", "board_sensor_temp"),
+                    RESULT_ZERO_INT),
+            spec(Policy.TEMPERATURE, "e", "boolean", List.of(), true,
+                    Set.of("RunningStatus.checkOverStartTemperatureLimit", "temperatureLimit:"),
+                    RESULT_FALSE),
+            spec(Policy.TEMPERATURE, "f", "boolean", List.of("int"), true,
+                    Set.of("RunningStatus.checkOverStopTemperatureLimit", "temperatureLimit:"),
+                    RESULT_FALSE),
+            spec(Policy.CHARGING, "i", "int", List.of(), true,
+                    Set.of("RunningStatus.getCharging", "getCharging error"), RESULT_ONE_INT),
+            spec(Policy.POWER, "t", "int", List.of(), true,
+                    Set.of("RunningStatus.getPower", "getPower error"), RESULT_HUNDRED_INT),
+            spec(Policy.SCREEN_IDLE, "n", "int", List.of(), true,
+                    Set.of("RunningStatus.getInteractive", "getInteractive error"),
+                    RESULT_ZERO_INT),
+            spec(Policy.MIGRATION, "l", "int", List.of(), true,
+                    Set.of("RunningStatus.getHuanji", "HUANJI"), RESULT_ZERO_INT),
+            spec(Policy.DAILY_COUNT, "k", "int", List.of(), true,
+                    Set.of("RunningStatus.getDailyRunningCount", "SEARCH_DATA_COUNT"),
+                    RESULT_ZERO_INT),
+            spec(Policy.DURATION, "b", "boolean", List.of("long"), false,
+                    Set.of("StatusBean.canStop", "canStop-不满足建库条件 duration:"),
+                    ARGUMENT_NOW_LONG),
+            spec(Policy.DURATION, "d", "boolean", List.of(
+                            "com.hyperos.ai.aisearch.searchpro.monitor.RunLevel", "long"), true,
+                    Set.of("RunLevelKt.canStop", "canStop-不满足建库条件 duration:"),
+                    com.wayne.hyperaicrbypass.hook.HookBehavior.ARGUMENT_LAST_NOW_LONG),
+            spec(Policy.RUN_GAP, "w", "long", List.of(), true,
+                    Set.of("RunningStatus.getRunningGapTime", "getGap error:"),
+                    RESULT_ZERO_LONG),
+            spec(Policy.OVERLOAD, "a", "boolean", List.of("android.content.Context"), true,
+                    Set.of("OverloadSceneUtil.checkIsOverloadScene", "checkIsOverloadScene fail"),
+                    RESULT_FALSE),
+            spec(Policy.AI_UI_CAPABILITY, "i", "boolean", List.of(), true,
+                    Set.of("O1", "O3"), RESULT_TRUE)
+    );
 
     private SemanticHookCatalog() {
     }
@@ -85,6 +123,17 @@ public final class SemanticHookCatalog {
 
     public static List<SemanticHookSpec> specs(AicrVersionBranch branch) {
         return branch == AicrVersionBranch.V3 ? V3_SPECS : SPECS;
+    }
+
+    public static List<SemanticHookSpec> specs(
+            com.wayne.hyperaicrbypass.hook.AicrRuntimeLayout layout
+    ) {
+        return switch (layout) {
+            case V3_OBFUSCATED -> V3_SPECS;
+            case V4_READABLE -> SPECS;
+            case V4_COMPACT -> V4_COMPACT_SPECS;
+            case UNKNOWN -> List.of();
+        };
     }
 
     private static SemanticHookSpec spec(

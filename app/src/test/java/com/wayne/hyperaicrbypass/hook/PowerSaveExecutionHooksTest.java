@@ -67,6 +67,19 @@ public class PowerSaveExecutionHooksTest {
         assertFalse(PowerSaveExecutionHooks.matchesStaticShape(v4Instance, true));
     }
 
+    @Test
+    public void compactV4UsesStaticStartAndInstanceStopBoundaries() {
+        List<PowerSaveHookSpec> specs =
+                PowerSaveHookSpec.catalog(AicrRuntimeLayout.V4_COMPACT);
+
+        assertEquals(List.of("d", "r"),
+                specs.stream().map(PowerSaveHookSpec::methodName).toList());
+        assertTrue(specs.get(0).allowStatic());
+        assertFalse(specs.get(1).allowStatic());
+        assertEquals("qz7", specs.get(0).className());
+        assertEquals("qz7", specs.get(1).className());
+    }
+
     private static PowerSaveHookSpec spec(String methodName) {
         return PowerSaveHookSpec.catalog().stream()
                 .filter(spec -> spec.methodName().equals(methodName))
