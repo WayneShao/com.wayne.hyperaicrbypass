@@ -179,9 +179,9 @@ tag 推送后，Release 工作流会运行单元测试，构建 universal、`arm
 
 ## 上架 Xposed Modules Repository
 
-当前仓库中的 Release 是源码仓库发布，不会自动出现在 Xposed Modules Repository。后续上架时，按[官方提交说明](https://github.com/Xposed-Modules-Repo/submission)提交 `[submission] com.wayne.hyperaicrbypass`，或按官方 transfer 流程转移现有仓库。
+本项目已经上架 [Xposed Modules Repository](https://github.com/Xposed-Modules-Repo/com.wayne.hyperaicrbypass)。当前源码仓库保留完整代码、文档、测试和构建流程；官方 package-named 仓库仅保留商店 README、`SUMMARY`、`SOURCE_URL`、`SCOPE` 和 `LICENSE`，并链接回本源码仓库。
 
-官方 package-named 仓库的 Release 只上传经过同一证书签名的 universal APK，并保持相同的 `versionCode-versionName` tag。不要只替换已经发布的 APK 资源；任何二进制变化都应提高应用版本并创建新 tag，以保证官方仓库能够检测更新。
+每个正式版本会把同一批已验证签名的 universal、`arm64-v8a`、`armeabi-v7a`、`x86` 和 `x86_64` APK 以及完整 Release Notes 同步到官方仓库，并保持相同的 `versionCode-versionName` tag。不要替换已经发布的 APK 资源；任何二进制变化都应提高应用版本并创建新 tag，以保证官方仓库能够检测更新并保留可验证的历史版本。
 
 ## License
 
