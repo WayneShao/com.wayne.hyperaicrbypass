@@ -261,12 +261,18 @@ jobs:
             "$X86_PATH"
             "$X64_PATH"
           )
+          release_notes="$GITHUB_WORKSPACE/.github/release-notes/${VERSION_NAME}.md"
+          notes_args=(--generate-notes)
+          if [[ -f "$release_notes" ]]; then
+            notes_args=(--notes-file "$release_notes")
+          fi
+
           gh release create "$GITHUB_REF_NAME" \
             "${assets[@]}" \
             --verify-tag \
             --draft \
             --title "$VERSION_NAME" \
-            --generate-notes
+            "${notes_args[@]}"
 
           release_json="$(gh release view "$GITHUB_REF_NAME" --json isDraft,assets)"
           [[ "$(jq -r '.isDraft' <<<"$release_json")" == "true" ]] || {
